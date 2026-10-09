@@ -1,156 +1,193 @@
-"""A small, shape-consistent walkthrough of ViT patch embedding.
+"""ViT patch embedding: channel-first shapes with uncluttered staged animation.
 
-Toy example: 4x4 RGB pixels, 2x2 patches, 4 patches, 12 values per patch,
-and an illustrative learned linear projection from 12 to 6 dimensions.
+Illustrative RGB channel values; the linear projection output is schematic.
 """
 
 from manim import (
-    BLUE_B, BLUE_D, DOWN, FadeIn, FadeOut, GOLD_B, GREEN_B, GREY_B,
-    LEFT, LaggedStart, Line, ORIGIN, RIGHT, Scene, Square, SurroundingRectangle,
-    Text, TransformFromCopy, UP, VGroup, WHITE, YELLOW, Create, Rectangle,
+    BLUE_B, BLUE_D, Create, DOWN, FadeIn, FadeOut, GREEN_B, GREY_B,
+    LEFT, ORANGE, RIGHT, Scene, Square, Rectangle, Text, TransformFromCopy,
+    UP, VGroup, WHITE, YELLOW, LaggedStart, Arrow,
 )
+
+COLORS = (ORANGE, GREEN_B, BLUE_B)  # R, G, B
+CHANNEL_NAMES = ("R", "G", "B")
 
 
 class ViTPatchEmbedding(Scene):
     def construct(self):
-        title = Text("Vision Transformer | Patch Embedding", font_size=34)
-        title.to_edge(UP, buff=0.35)
-        subtitle = Text(
-            "Toy example: 4 x 4 RGB image, 2 x 2 patches",
-            font_size=21, color=GREY_B,
-        ).next_to(title, DOWN, buff=0.15)
-        self.play(FadeIn(title, shift=DOWN), FadeIn(subtitle, shift=DOWN))
+        title = Text("Vision Transformer | Patch Embedding", font_size=32)
+        title.to_edge(UP, buff=0.3)
+        self.add(title)
 
-        # A 4 x 4 RGB image, grouped into four 2 x 2 patches.
-        palette = [
-            [BLUE_D, BLUE_B, GREEN_B, GREEN_B],
-            [BLUE_B, BLUE_D, GREEN_B, BLUE_B],
-            [GOLD_B, GOLD_B, BLUE_B, BLUE_D],
-            [GOLD_B, GREEN_B, BLUE_D, BLUE_B],
-        ]
-        pixel_size = 0.62
-        pixels = VGroup()
-        for row in range(4):
-            for col in range(4):
-                cell = Square(side_length=pixel_size, stroke_width=1.5)
-                cell.set_fill(palette[row][col], opacity=0.92)
+        # Each phase has its own composition; nothing accumulates under the next.
+        self.show_partition()
+        self.show_one_flatten()
+        self.show_patch_matrix()
+        self.show_projection()
+
+    def heading(self, label, detail):
+        main = Text(label, font_size=26)
+        main.move_to(UP * 2.45)
+        sub = Text(detail, font_size=19, color=GREY_B)
+        sub.next_to(main, DOWN, buff=0.18)
+        return VGroup(main, sub)
+
+    def channel_grid(self, color, dimension, size):
+        cells = VGroup()
+        for row in range(dimension):
+            for col in range(dimension):
+                cell = Square(side_length=size, stroke_color=WHITE, stroke_width=1)
+                cell.set_fill(color, opacity=0.82)
                 cell.move_to(
-                    LEFT * 3.85
-                    + RIGHT * (col - 1.5) * pixel_size
-                    + UP * (1.5 - row) * pixel_size
+                    RIGHT * (col - (dimension - 1) / 2) * size
+                    + DOWN * (row - (dimension - 1) / 2) * size
                 )
-                pixels.add(cell)
+                cells.add(cell)
+        return cells
 
-        image_label = Text("Input image  (4 x 4 x 3)", font_size=21)
-        image_label.next_to(pixels, DOWN, buff=0.35)
+    def channel_stack(self, dimension, size, offset=0.20):
+        planes = VGroup()
+        # Distinct planes, positioned diagonally like a C x H x W tensor.
+        for i, color in enumerate(COLORS):
+            plane = self.channel_grid(color, dimension, size)
+            plane.shift(RIGHT * (2 - i) * offset + UP * (2 - i) * offset)
+            planes.add(plane)
+        return planes
 
-        patch_boxes = VGroup()
-        for row in range(2):
-            for col in range(2):
-                # Each 2x2 group occupies a 1.24x1.24 region.
-                center = (
-                    LEFT * 3.85
-                    + RIGHT * (col - 0.5) * 2 * pixel_size
-                    + UP * (0.5 - row) * 2 * pixel_size
-                )
-                box = Square(side_length=2 * pixel_size)
-                box.move_to(center).set_stroke(WHITE, width=4)
-                patch_boxes.add(box)
+    def patch_stack(self, size=0.32):
+        return self.channel_stack(2, size, offset=0.17)
 
-        self.play(FadeIn(pixels), FadeIn(image_label))
-        self.play(LaggedStart(*[Create(b) for b in patch_boxes], lag_ratio=0.18))
-        self.wait(0.4)
+    def vector(self, width, height=0.35):
+        pieces = VGroup()
+        for color in COLORS:
+            for _ in range(width // 3):
+                cell = Rectangle(width=0.205, height=height, stroke_width=1,
+                                 stroke_color=WHITE)
+                cell.set_fill(color, opacity=0.86)
+                pieces.add(cell)
+        pieces.arrange(RIGHT, buff=0.025)
+        return pieces
 
-        # Extract the four patches to the right. Each patch is a distinct
-        # copy of the original pixels, preserving their original colors.
-        patch_groups = VGroup()
-        for row in range(2):
-            for col in range(2):
-                patch_pixels = VGroup()
-                for inner_row in range(2):
-                    for inner_col in range(2):
-                        src_idx = (row * 2 + inner_row) * 4 + col * 2 + inner_col
-                        patch_pixels.add(pixels[src_idx].copy())
-                patch_groups.add(patch_pixels)
+    def show_partition(self):
+        header = self.heading("01  Patch partition", "x: (3, 4, 4)  |  patch size: 2")
+        image = self.channel_stack(4, 0.46)
+        image.move_to(LEFT * 3.0 + DOWN * 0.25)
+        image_caption = Text("RGB channels", font_size=20)
+        image_caption.next_to(image, DOWN, buff=0.35)
 
-        targets = VGroup()
+        patches = VGroup()
         for i in range(4):
-            target = patch_groups[i].copy()
-            target.scale(0.72)
-            target.move_to(
-                RIGHT * 0.4
-                + RIGHT * (i % 2) * 2.0
-                + UP * (0.5 - i // 2) * 1.4
-            )
-            targets.add(target)
+            patch = self.patch_stack(size=0.29)
+            patch.move_to(RIGHT * (1.8 + (i % 2) * 2.0)
+                          + UP * (0.55 - (i // 2) * 1.65))
+            patches.add(patch)
+        patch_caption = Text("4 patches  |  each (3, 2, 2)", font_size=20)
+        patch_caption.next_to(patches, DOWN, buff=0.34)
 
-        patch_label = Text("4 patches  (2 x 2 x 3 each)", font_size=20)
-        patch_label.next_to(targets, DOWN, buff=0.45)
-        self.play(
-            LaggedStart(
-                *[TransformFromCopy(patch_groups[i], targets[i]) for i in range(4)],
-                lag_ratio=0.2,
-            ),
-            run_time=2.2,
-        )
-        self.play(FadeIn(patch_label))
-        self.wait(0.6)
+        self.play(FadeIn(header), FadeIn(image), FadeIn(image_caption))
+        self.play(LaggedStart(*[FadeIn(p, scale=0.7) for p in patches],
+                              lag_ratio=0.22), run_time=1.8)
+        self.play(FadeIn(patch_caption))
+        self.wait(1.0)
+        self.play(FadeOut(VGroup(header, image, image_caption, patches, patch_caption)))
 
-        # Replace spatial patches with flattened RGB vectors, then project.
-        self.play(
-            FadeOut(pixels), FadeOut(patch_boxes), FadeOut(image_label),
-            FadeOut(patch_groups), FadeOut(patch_label),
-            FadeOut(targets),
-        )
+    def show_one_flatten(self):
+        header = self.heading("02  Flatten one patch", "(3, 2, 2) -> 12 values")
+        patch = self.patch_stack(size=0.62)
+        patch.move_to(LEFT * 3.1 + DOWN * 0.1)
+        patch_caption = Text("one RGB patch", font_size=20)
+        patch_caption.next_to(patch, DOWN, buff=0.38)
 
-        flatten_label = Text("Flatten: 2 x 2 x 3 = 12", font_size=26)
-        flatten_label.move_to(UP * 2.0)
-        self.play(FadeIn(flatten_label))
+        # A channel occupies four neighboring entries, in C-H-W order.
+        row = self.vector(12, height=0.46)
+        row.move_to(RIGHT * 2.7 + DOWN * 0.2)
+        names = VGroup()
+        for i, name in enumerate(CHANNEL_NAMES):
+            label = Text(name, font_size=21, color=COLORS[i])
+            label.next_to(VGroup(*row[i*4:(i+1)*4]), UP, buff=0.22)
+            names.add(label)
+        explanation = Text("4 R  +  4 G  +  4 B  =  12", font_size=20, color=GREY_B)
+        explanation.next_to(row, DOWN, buff=0.6)
 
-        vectors = VGroup()
-        for row in range(4):
-            cells = VGroup()
-            for col in range(12):
-                cell = Rectangle(width=0.27, height=0.38)
-                cell.set_stroke(WHITE, width=1)
-                cell.set_fill([BLUE_D, GREEN_B, GOLD_B][col % 3], opacity=0.85)
-                cells.add(cell)
-            cells.arrange(RIGHT, buff=0.025)
-            vectors.add(cells)
-        vectors.arrange(DOWN, buff=0.22).move_to(LEFT * 3.25 + DOWN * 0.2)
-        self.play(LaggedStart(*[FadeIn(v, shift=RIGHT * 0.3) for v in vectors], lag_ratio=0.17))
-
-        projection = VGroup(
-            Rectangle(width=1.65, height=1.5, color=YELLOW),
-            Text("Linear\n12 -> 6", font_size=23, color=YELLOW),
-        )
-        projection[1].move_to(projection[0])
-        projection.move_to(ORIGIN + DOWN * 0.2)
-        self.play(FadeIn(projection))
-        for row in range(4):
+        self.play(FadeIn(header), FadeIn(patch), FadeIn(patch_caption))
+        # One channel at a time: 2x2 cells visibly turn into four entries.
+        for channel in range(3):
             self.play(
-                Create(Line(vectors[row].get_right(), projection.get_left(), color=GREY_B)),
-                run_time=0.13,
+                TransformFromCopy(
+                    patch[channel], VGroup(*row[channel*4:(channel+1)*4])
+                ),
+                FadeIn(names[channel]),
+                run_time=0.9,
             )
-        self.wait(0.2)
-        # The output bars represent a learned embedding, not computed
-        # numerical outputs. The diagram communicates shapes, not weights.
-        token_rows = VGroup()
-        for row in range(4):
-            cells = VGroup()
-            for col in range(6):
-                cell = Rectangle(width=0.32, height=0.38)
-                cell.set_stroke(WHITE, width=1)
-                cell.set_fill([BLUE_B, GREEN_B, GOLD_B, BLUE_D][(row + col) % 4], opacity=0.85)
-                cells.add(cell)
-            cells.arrange(RIGHT, buff=0.035)
-            token_rows.add(cells)
-        token_rows.arrange(DOWN, buff=0.22).move_to(RIGHT * 3.2 + DOWN * 0.2)
+        self.play(FadeIn(explanation))
+        self.wait(1.1)
+        self.play(FadeOut(VGroup(header, patch, patch_caption, row, names, explanation)))
 
-        self.play(LaggedStart(*[FadeIn(t, shift=RIGHT * 0.4) for t in token_rows], lag_ratio=0.22))
-        tokens_caption = Text("4 tokens x 6 features", font_size=22)
-        tokens_caption.next_to(token_rows, DOWN, buff=0.4)
-        self.play(FadeIn(tokens_caption))
-        highlight = SurroundingRectangle(token_rows, color=YELLOW, buff=0.14)
-        self.play(Create(highlight))
-        self.wait(1)
+    def show_patch_matrix(self):
+        header = self.heading("03  Apply to all patches", "4 patches x 12 values = (4, 12)")
+        patches = VGroup()
+        rows = VGroup()
+        for i in range(4):
+            patch = self.patch_stack(size=0.19)
+            patch.move_to(LEFT * 3.4 + UP * (1.5 - i) * 0.92 + DOWN * 0.15)
+            patches.add(patch)
+            line = self.vector(12)
+            line.move_to(RIGHT * 1.5 + UP * (1.5 - i) * 0.92 + DOWN * 0.15)
+            rows.add(line)
+
+        patch_caption = Text("4 patches", font_size=19)
+        patch_caption.next_to(patches, DOWN, buff=0.35)
+        row_caption = Text("Patch matrix  (4, 12)", font_size=19)
+        row_caption.next_to(rows, DOWN, buff=0.35)
+        self.play(FadeIn(header), FadeIn(patches), FadeIn(patch_caption))
+        self.play(LaggedStart(
+            *[TransformFromCopy(patches[i], rows[i]) for i in range(4)],
+            lag_ratio=0.22,
+        ), run_time=2.6)
+        self.play(FadeIn(row_caption))
+        self.wait(0.9)
+        self.play(FadeOut(VGroup(header, patches, rows, patch_caption, row_caption)))
+
+    def show_projection(self):
+        header = self.heading("04  Linear projection", "(4, 12)  ->  (4, 6)")
+        inputs = VGroup()
+        outputs = VGroup()
+        for i in range(4):
+            v = self.vector(12)
+            v.move_to(LEFT * 3.8 + UP * (1.5 - i) * 0.62 + DOWN * 0.1)
+            inputs.add(v)
+            out = VGroup()
+            for j in range(6):
+                block = Rectangle(width=0.25, height=0.36,
+                                  stroke_color=WHITE, stroke_width=1)
+                block.set_fill((BLUE_D, GREEN_B, ORANGE)[(i+j) % 3], opacity=0.9)
+                out.add(block)
+            out.arrange(RIGHT, buff=0.03)
+            out.move_to(RIGHT * 3.7 + UP * (1.5 - i) * 0.62 + DOWN * 0.1)
+            outputs.add(out)
+
+        linear = VGroup(
+            Rectangle(width=2.0, height=1.3, color=YELLOW),
+            Text("Linear\n12 -> 6", font_size=24, color=YELLOW),
+        )
+        linear[1].move_to(linear[0])
+        linear.move_to(DOWN * 0.1)
+        left_label = Text("(4, 12)", font_size=22)
+        left_label.next_to(inputs, DOWN, buff=0.34)
+        right_label = Text("(4, 6)", font_size=22)
+        right_label.next_to(outputs, DOWN, buff=0.34)
+
+        left_arrow = Arrow(inputs.get_right() + RIGHT*0.2,
+                           linear.get_left() + LEFT*0.15,
+                           buff=0, color=GREY_B, stroke_width=3)
+        right_arrow = Arrow(linear.get_right() + RIGHT*0.15,
+                            outputs.get_left() + LEFT*0.2,
+                            buff=0, color=GREY_B, stroke_width=3)
+        self.play(FadeIn(header), FadeIn(inputs), FadeIn(left_label))
+        self.play(FadeIn(linear), Create(left_arrow))
+        self.play(Create(right_arrow), FadeIn(outputs), FadeIn(right_label))
+        note = Text("Illustrative embeddings (not computed weights)",
+                    font_size=17, color=GREY_B)
+        note.to_edge(DOWN, buff=0.48)
+        self.play(FadeIn(note))
+        self.wait(1.8)
