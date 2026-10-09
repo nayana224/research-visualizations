@@ -9,22 +9,12 @@ from manim import (
     WHITE, YELLOW, Create, SurroundingRectangle, Arrow, LaggedStart, TransformFromCopy,
     MathTex,
 )
-# Manim loads scene files by path, so the repository root may not be on sys.path.
-from importlib.util import module_from_spec, spec_from_file_location
-from pathlib import Path
-
-_patch_path = Path(__file__).with_name("patch_embedding.py")
-_spec = spec_from_file_location("_vit_patch_embedding", _patch_path)
-_patch_module = module_from_spec(_spec)
-_spec.loader.exec_module(_patch_module)
-ViTPatchEmbedding = _patch_module.ViTPatchEmbedding
-
 COLORS = (BLUE_D, GREEN_B, ORANGE)
 KFONT = "Noto Sans CJK KR"
 
 
-class ViTFullPipeline(ViTPatchEmbedding):
-    """Reuse the existing 01 Patch Embedding choreography, then continue."""
+class ViTFullPipeline(Scene):
+    """Single self-contained animation scene."""
 
     def construct(self):
         self.camera.background_color = "#10131C"
@@ -49,6 +39,129 @@ class ViTFullPipeline(ViTPatchEmbedding):
                 leftovers = [item for item in self.mobjects if item is not title]
                 if leftovers:
                     self.play(*[FadeOut(item) for item in leftovers], run_time=0.45)
+
+    def heading(self, label, detail):
+        main = Text(label, font_size=26)
+        main.move_to(UP * 2.45)
+        sub = Text(detail, font_size=19, color=GREY_B)
+        sub.next_to(main, DOWN, buff=0.18)
+        return VGroup(main, sub)
+
+    def channel_grid(self, color, dimension, size):
+        cells = VGroup()
+        for row in range(dimension):
+            for col in range(dimension):
+                cell = Square(side_length=size, stroke_color=WHITE, stroke_width=1)
+                cell.set_fill(color, opacity=0.82)
+                cell.move_to(
+                    RIGHT * (col - (dimension - 1) / 2) * size
+                    + DOWN * (row - (dimension - 1) / 2) * size
+                )
+                cells.add(cell)
+        return cells
+
+    def channel_stack(self, dimension, size, offset=0.20):
+        planes = VGroup()
+        # Distinct planes, positioned diagonally like a C x H x W tensor.
+        for i, color in enumerate(COLORS):
+            plane = self.channel_grid(color, dimension, size)
+            plane.shift(RIGHT * (2 - i) * offset + UP * (2 - i) * offset)
+            planes.add(plane)
+        return planes
+
+    def patch_stack(self, size=0.32):
+        return self.channel_stack(2, size, offset=0.17)
+
+    def vector(self, width, height=0.35):
+        pieces = VGroup()
+        for color in COLORS:
+            for _ in range(width // 3):
+                cell = Rectangle(width=0.205, height=height, stroke_width=1,
+                                 stroke_color=WHITE)
+                cell.set_fill(color, opacity=0.86)
+                pieces.add(cell)
+        pieces.arrange(RIGHT, buff=0.025)
+        return pieces
+
+    def show_partition(self):
+        header = self.heading("01  Patch partition", "x: (3, 4, 4)  |  patch size: 2")
+        image = self.channel_stack(4, 0.46)
+        image.move_to(LEFT * 3.0 + DOWN * 0.25)
+        image_caption = Text("RGB channels", font_size=20)
+        image_caption.next_to(image, DOWN, buff=0.35)
+
+        patches = VGroup()
+        for i in range(4):
+            patch = self.patch_stack(size=0.29)
+            patch.move_to(RIGHT * (1.8 + (i % 2) * 2.0)
+                          + UP * (0.55 - (i // 2) * 1.65))
+            patches.add(patch)
+        patch_caption = Text("4 patches  |  each (3, 2, 2)", font_size=20)
+        patch_caption.next_to(patches, DOWN, buff=0.34)
+
+        self.play(FadeIn(header), FadeIn(image), FadeIn(image_caption))
+        self.play(LaggedStart(*[FadeIn(p, scale=0.7) for p in patches],
+                              lag_ratio=0.22), run_time=1.8)
+        self.play(FadeIn(patch_caption))
+        self.wait(1.0)
+        self.play(FadeOut(VGroup(header, image, image_caption, patches, patch_caption)))
+
+    def show_one_flatten(self):
+        header = self.heading("02  Flatten one patch", "(3, 2, 2) -> 12 values")
+        patch = self.patch_stack(size=0.62)
+        patch.move_to(LEFT * 3.1 + DOWN * 0.1)
+        patch_caption = Text("one RGB patch", font_size=20)
+        patch_caption.next_to(patch, DOWN, buff=0.38)
+
+        # A channel occupies four neighboring entries, in C-H-W order.
+        row = self.vector(12, height=0.46)
+        row.move_to(RIGHT * 2.7 + DOWN * 0.2)
+        names = VGroup()
+        for i, name in enumerate(CHANNEL_NAMES):
+            label = Text(name, font_size=21, color=COLORS[i])
+            label.next_to(VGroup(*row[i*4:(i+1)*4]), UP, buff=0.22)
+            names.add(label)
+        explanation = Text("4 R  +  4 G  +  4 B  =  12", font_size=20, color=GREY_B)
+        explanation.next_to(row, DOWN, buff=0.6)
+
+        self.play(FadeIn(header), FadeIn(patch), FadeIn(patch_caption))
+        # One channel at a time: 2x2 cells visibly turn into four entries.
+        for channel in range(3):
+            self.play(
+                TransformFromCopy(
+                    patch[channel], VGroup(*row[channel*4:(channel+1)*4])
+                ),
+                FadeIn(names[channel]),
+                run_time=0.9,
+            )
+        self.play(FadeIn(explanation))
+        self.wait(1.1)
+        self.play(FadeOut(VGroup(header, patch, patch_caption, row, names, explanation)))
+
+    def show_patch_matrix(self):
+        header = self.heading("03  Apply to all patches", "4 patches x 12 values = (4, 12)")
+        patches = VGroup()
+        rows = VGroup()
+        for i in range(4):
+            patch = self.patch_stack(size=0.19)
+            patch.move_to(LEFT * 3.4 + UP * (1.5 - i) * 0.92 + DOWN * 0.15)
+            patches.add(patch)
+            line = self.vector(12)
+            line.move_to(RIGHT * 1.5 + UP * (1.5 - i) * 0.92 + DOWN * 0.15)
+            rows.add(line)
+
+        patch_caption = Text("4 patches", font_size=19)
+        patch_caption.next_to(patches, DOWN, buff=0.35)
+        row_caption = Text("Patch matrix  (4, 12)", font_size=19)
+        row_caption.next_to(rows, DOWN, buff=0.35)
+        self.play(FadeIn(header), FadeIn(patches), FadeIn(patch_caption))
+        self.play(LaggedStart(
+            *[TransformFromCopy(patches[i], rows[i]) for i in range(4)],
+            lag_ratio=0.22,
+        ), run_time=2.6)
+        self.play(FadeIn(row_caption))
+        self.wait(0.9)
+        self.play(FadeOut(VGroup(header, patches, rows, patch_caption, row_caption)))
 
     def ko(self, content, size=22, color=GREY_B):
         return Text(content, font=KFONT, font_size=size, color=color)
