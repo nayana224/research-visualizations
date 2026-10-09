@@ -6,7 +6,7 @@ Visual tokens are schematic. Attention equations describe actual operations.
 from manim import (
     BLUE_B, BLUE_D, DOWN, FadeIn, FadeOut, GREEN_B, GREY_B,
     LEFT, ORANGE, RIGHT, Scene, Square, Rectangle, Text, UP, VGroup,
-    WHITE, YELLOW, Create, SurroundingRectangle, Arrow, LaggedStart,
+    WHITE, YELLOW, Create, SurroundingRectangle, Arrow, LaggedStart, TransformFromCopy,
     MathTex,
 )
 # Manim loads scene files by path, so the repository root may not be on sys.path.
