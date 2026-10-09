@@ -13,3 +13,6 @@ This repository creates short, accurate educational animations with Manim.
 - Before calling a scene complete, render it and inspect key frames (opening, each transition, final frame) for clipping and overlap.
 - Do not claim render success without running the render. Report unverified results clearly.
 - Preserve existing work and avoid overwriting uncommitted local changes. Update README commands when adding a scene.
+
+- Keep architecture keywords in English, but use concise Korean explanations where they improve understanding. Use a Korean-capable font and verify glyph rendering.
+- Full-pipeline videos must reuse validated stage choreography rather than copying unrelated scene files into one layout.

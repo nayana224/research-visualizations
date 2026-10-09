@@ -37,6 +37,21 @@ Default output paths:
 For a faster preview, add `-ql` after `manim` (480p15).
 For 1080p, add `-qh` (1080p60).
 
+## Full ViT video (Korean explanations)
+
+A single 720p30 video combines the validated Patch Embedding choreography with CLS Token,
+Positional Embedding, Multi-Head Self-Attention, Encoder, and Classification.
+Architecture keywords remain in English while explanatory subtitles use Korean.
+
+```bash
+docker compose run --rm manim uv run manim scenes/vit/vit_full.py ViTFullPipeline
+```
+
+Output: `media/videos/vit_full/720p30/ViTFullPipeline.mp4`
+
+This visual walkthrough is schematic, not a numerical implementation of trained ViT weights.
+Verify Korean font rendering and key frames locally before publication.
+
 ## First Manim exercise
 
 ```bash
