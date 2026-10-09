@@ -24,3 +24,11 @@ Create one coherent educational animation with Manim Community Edition 0.20.1:
 - Render the complete scene and inspect opening, stage transitions, multiplication, attention, residual paths, and closing for overlaps/clipping.
 - Do not claim rendering or visual verification unless actually done. If not available, explicitly mark it unverified.
 - Preserve unrelated work. Document accurate launch commands in README.
+
+## Publication-quality figure language
+- Use the original ViT paper's Figure 1 as a conceptual reference for Patch Embeddings, prepend CLS, Positional Embedding, repeated Transformer Encoder and MLP classification head. The animation must not suggest that toy numbers are trained activations.
+- Add paper-like component labels, dimensional annotations and operational links, but introduce one new relationship per beat (progressive disclosure).
+- Attention: distinguish QK^T score matrix (N,N), row-wise softmax and attention-value multiplication. Highlight one query row before the whole matrix is revealed.
+- Draw residuals as an actual bypass with an addition node, rather than a label attached to the output. Pre-LN must show LayerNorm before the sublayer.
+- Keep detail readable at 720p: avoid tiny type, uncontrolled z-order, and lines crossing other blocks; allow a dedicated close-up instead of cramming a full figure onto the screen.
+- Visual values in a colored attention map are illustrative unless actually computed; captions must disclose that.

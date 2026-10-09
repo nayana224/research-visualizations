@@ -7,7 +7,7 @@ from manim import (
     BLUE_B, BLUE_D, DOWN, FadeIn, FadeOut, GREEN_B, GREY_B,
     LEFT, ORANGE, RIGHT, Scene, Square, Rectangle, Text, UP, VGroup,
     WHITE, YELLOW, Create, SurroundingRectangle, Arrow, LaggedStart, TransformFromCopy,
-    MathTex,
+    MathTex, Circle, Line,
 )
 COLORS = (ORANGE, GREEN_B, BLUE_B)
 CHANNEL_NAMES = ("R", "G", "B")
@@ -396,6 +396,41 @@ class ViTFullPipeline(Scene):
         self.wait(0.5)
         self.play(FadeOut(VGroup(header, query, keys, scores, query_tag, keys_tag, scores_tag)))
 
+        # Full paper-style attention map after the detailed single-query example.
+        header = self.stage("09", "Attention Matrix", "모든 Query와 Key의 비교 결과는 5×5 행렬입니다.")
+        qnames = VGroup(*[Text(f"Q{i}", font_size=17, color=BLUE_B) for i in range(5)])
+        knames = VGroup(*[Text(f"K{i}", font_size=17, color=GREEN_B) for i in range(5)])
+        cells = VGroup()
+        for r in range(5):
+            row = VGroup()
+            for c in range(5):
+                square = Square(side_length=0.53, stroke_color=WHITE, stroke_width=0.8)
+                square.set_fill(BLUE_D, opacity=0.18 + 0.12 * ((r * 3 + c * 2) % 5))
+                row.add(square)
+            row.arrange(RIGHT, buff=0.05)
+            cells.add(row)
+        cells.arrange(DOWN, buff=0.05).move_to(DOWN * 0.08)
+        for r in range(5):
+            qnames[r].next_to(cells[r], LEFT, buff=0.22)
+            knames[r].next_to(cells[0][r], UP, buff=0.25)
+        shape = Text("QK^T : (5, 5)", font_size=23)
+        shape.next_to(cells, DOWN, buff=0.35)
+        note = self.ko("각 행은 Query 하나가 모든 Key를 비교한 결과입니다.", 19)
+        note.to_edge(DOWN, buff=0.4)
+        self.play(FadeIn(header), FadeIn(qnames), FadeIn(knames))
+        for r in range(5):
+            self.play(
+                LaggedStart(*[FadeIn(cells[r][c]) for c in range(5)],
+                            lag_ratio=0.09),
+                run_time=0.55,
+            )
+        self.play(FadeIn(shape), FadeIn(note))
+        first = SurroundingRectangle(cells[0], color=YELLOW, buff=0.075)
+        self.play(Create(first))
+        self.wait(0.8)
+        self.play(FadeOut(VGroup(header, cells, qnames, knames, shape, note, first)))
+
+
         header = self.stage("10", "Softmax & Weighted Sum",
                             "관련도를 정규화해 Value의 가중합을 만듭니다.")
         scores = VGroup(*[
@@ -459,57 +494,64 @@ class ViTFullPipeline(Scene):
         self.play(FadeOut(VGroup(header, input_matrix, heads, concat, output, cap)))
 
     def encoder(self):
-        # ViT uses pre-LN: each sublayer's residual bypasses that entire sublayer.
-        header = self.stage("12", "Transformer Encoder — MSA",
-                            "LayerNorm을 거친 뒤 MSA를 계산하고 입력과 더합니다.")
-        token = self.matrix(5, highlight_first=True).move_to(LEFT * 4.6 + DOWN * 0.10)
-        ln = VGroup(Rectangle(width=1.55, height=0.78, color=BLUE_B),
-                    Text("LayerNorm", font_size=19))
-        ln[1].move_to(ln[0])
-        ln.move_to(LEFT * 1.75 + DOWN * 0.10)
-        msa = VGroup(Rectangle(width=1.40, height=0.78, color=BLUE_B),
-                     Text("MSA", font_size=23))
-        msa[1].move_to(msa[0])
-        msa.move_to(RIGHT * 0.7 + DOWN * 0.10)
-        added = self.matrix(5, highlight_first=True).scale(0.84).move_to(
-            RIGHT * 4.35 + DOWN * 0.10
-        )
-        residual = Text("+ Residual", font_size=20, color=YELLOW)
-        residual.next_to(added, UP, buff=0.15)
-        self.play(FadeIn(header), FadeIn(token))
-        self.play(TransformFromCopy(token, ln), run_time=0.75)
-        self.play(TransformFromCopy(ln, msa), run_time=0.75)
-        self.play(TransformFromCopy(msa, added), run_time=0.75)
-        residual_line = Arrow(token.get_top()+UP*0.15, added.get_top()+UP*0.15,
-                              buff=0.1, path_arc=0, color=YELLOW, stroke_width=2)
-        self.play(Create(residual_line), FadeIn(residual))
-        self.wait(0.7)
-        self.play(FadeOut(VGroup(header, token, ln, msa, added, residual, residual_line)))
-
-        header = self.stage("13", "Transformer Encoder — MLP",
-                            "다시 LayerNorm과 MLP를 거친 뒤 Residual을 더합니다.")
-        source = self.matrix(5, highlight_first=True).move_to(LEFT * 4.5 + DOWN * 0.10)
-        blocks = VGroup()
-        for word in ("LayerNorm", "MLP"):
-            box = Rectangle(width=1.6, height=0.8, color=GREEN_B)
-            text = Text(word, font_size=20).move_to(box)
-            blocks.add(VGroup(box, text))
-        blocks.arrange(RIGHT, buff=1.25).move_to(DOWN * 0.10)
-        dest = self.matrix(5, highlight_first=True).scale(0.84).move_to(
-            RIGHT * 4.5 + DOWN * 0.10
-        )
-        self.play(FadeIn(header), FadeIn(source))
-        self.play(TransformFromCopy(source, blocks[0]), run_time=0.8)
-        self.play(TransformFromCopy(blocks[0], blocks[1]), run_time=0.8)
-        self.play(TransformFromCopy(blocks[1], dest), run_time=0.8)
-        note = self.ko("각 Residual Addition 후에도 Shape은 (5, 6)입니다.", 20)
-        note.next_to(dest, DOWN, buff=0.6)
-        bypass = Arrow(source.get_top()+UP*0.12, dest.get_top()+UP*0.12,
-                       buff=0.1, color=YELLOW, stroke_width=2)
-        self.play(Create(bypass), FadeIn(note))
-        self.wait(0.8)
-        self.play(FadeOut(VGroup(header, source, blocks, dest, bypass, note)))
-
+        # A detail view of the ViT pre-LN encoder, with two residual paths.
+        # Show a physical bypass path and a plus node for each sublayer.
+        for number, title, description, operation, color in (
+            ("12", "Encoder: Attention Block",
+             "입력을 LayerNorm과 MSA에 통과시키고 원래 입력을 더합니다.",
+             "MSA", BLUE_B),
+            ("13", "Encoder: Feed Forward",
+             "다시 LayerNorm과 MLP를 통과한 결과에 입력을 더합니다.",
+             "MLP", GREEN_B),
+        ):
+            header = self.stage(number, title, description)
+            source = self.matrix(5, highlight_first=True).scale(0.74)
+            source.move_to(LEFT * 5.10 + DOWN * 0.58)
+            norm = VGroup(Rectangle(width=1.48, height=0.78, color=color),
+                          Text("LayerNorm", font_size=18))
+            norm[1].move_to(norm[0])
+            norm.move_to(LEFT * 2.25 + DOWN * 0.58)
+            block = VGroup(Rectangle(width=1.32, height=0.78, color=color),
+                           Text(operation, font_size=22))
+            block[1].move_to(block[0])
+            block.move_to(RIGHT * 0.10 + DOWN * 0.58)
+            add = VGroup(Circle(radius=0.30, color=YELLOW),
+                         Text("+", font_size=27, color=YELLOW))
+            add[1].move_to(add[0])
+            add.move_to(RIGHT * 2.22 + DOWN * 0.58)
+            result = self.matrix(5, highlight_first=True).scale(0.74)
+            result.move_to(RIGHT * 5.18 + DOWN * 0.58)
+            connections = VGroup(
+                Arrow(source.get_right(), norm.get_left(), buff=0.11, color=GREY_B),
+                Arrow(norm.get_right(), block.get_left(), buff=0.11, color=GREY_B),
+                Arrow(block.get_right(), add.get_left(), buff=0.11, color=GREY_B),
+                Arrow(add.get_right(), result.get_left(), buff=0.11, color=GREY_B),
+            )
+            # Route above the blocks but below the title and Korean subtitle.
+            route = VGroup(
+                Line(source.get_top(), source.get_top() + UP * 1.12, color=YELLOW),
+                Line(source.get_top() + UP * 1.12,
+                     add.get_top() + UP * 0.60, color=YELLOW),
+                Arrow(add.get_top() + UP * 0.60, add.get_top(),
+                      buff=0.04, color=YELLOW, stroke_width=2),
+            )
+            inlabel = self.label("Input (5, 6)", source, buff=0.18)
+            outlabel = self.label("Output (5, 6)", result, buff=0.18)
+            bypass_text = Text("Skip / Residual", font_size=18, color=YELLOW)
+            bypass_text.move_to(UP * 1.10)
+            self.play(FadeIn(header), FadeIn(source), FadeIn(inlabel))
+            self.play(Create(connections[0]), FadeIn(norm))
+            self.play(Create(connections[1]), FadeIn(block))
+            self.play(Create(connections[2]), FadeIn(add))
+            self.play(Create(route), FadeIn(bypass_text), run_time=1.35)
+            self.play(Create(connections[3]),
+                      TransformFromCopy(source, result),
+                      FadeIn(outlabel), run_time=1.1)
+            self.wait(0.85)
+            self.play(FadeOut(VGroup(
+                header, source, norm, block, add, result, connections, route,
+                inlabel, outlabel, bypass_text,
+            )))
 
     def classification(self):
         head = self.stage("14", "Classification Head", "마지막 CLS Token을 읽어 클래스를 예측합니다.")
