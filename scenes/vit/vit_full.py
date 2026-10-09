@@ -9,7 +9,8 @@ from manim import (
     WHITE, YELLOW, Create, SurroundingRectangle, Arrow, LaggedStart, TransformFromCopy,
     MathTex,
 )
-COLORS = (BLUE_D, GREEN_B, ORANGE)
+COLORS = (ORANGE, GREEN_B, BLUE_B)
+CHANNEL_NAMES = ("R", "G", "B")
 KFONT = "Noto Sans CJK KR"
 
 
