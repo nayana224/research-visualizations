@@ -22,6 +22,7 @@ class ViTFullPipeline(Scene):
         title = Text("Vision Transformer | ViT", font_size=34)
         title.to_edge(UP, buff=0.28)
         self.add(title)
+        self.paper_style_intro()
         stages = (
             self.show_partition,
             self.show_one_flatten,
@@ -44,6 +45,46 @@ class ViTFullPipeline(Scene):
                 leftovers = [item for item in self.mobjects if item is not title and item is not keep]
                 if leftovers:
                     self.play(*[FadeOut(item) for item in leftovers], run_time=0.45)
+
+    def paper_style_intro(self):
+        """An original miniature overview patterned on the ViT paper's Figure 1."""
+        items = (
+            ("Image", BLUE_B), ("Patch\nProjection", ORANGE),
+            ("CLS + Position", GREEN_B), ("Encoder x L", BLUE_D),
+            ("MLP Head", YELLOW), ("Class", ORANGE),
+        )
+        nodes = VGroup()
+        for label, color in items:
+            frame = Rectangle(width=1.72, height=0.87, color=color, stroke_width=2)
+            text = Text(label, font_size=16, line_spacing=0.8).move_to(frame)
+            nodes.add(VGroup(frame, text))
+        nodes.arrange(RIGHT, buff=0.36).move_to(DOWN * 0.05)
+        arrows = VGroup()
+        for i in range(len(nodes)-1):
+            arrows.add(Arrow(nodes[i].get_right(), nodes[i+1].get_left(),
+                             buff=0.035, stroke_width=2, color=GREY_B))
+        caption = self.ko("입력 이미지부터 예측 클래스까지 전체 흐름을 먼저 살펴봅니다.", 20)
+        caption.next_to(nodes, DOWN, buff=0.65)
+        self.play(LaggedStart(*[FadeIn(node) for node in nodes], lag_ratio=0.13),
+                  run_time=2.0)
+        self.play(LaggedStart(*[Create(arrow) for arrow in arrows], lag_ratio=0.15),
+                  FadeIn(caption), run_time=1.3)
+        self.wait(1.0)
+        self.play(FadeOut(VGroup(nodes, arrows, caption)), run_time=0.6)
+
+    def numeric_demo(self, title, subtitle, expressions, note):
+        """Progressively write small, explicitly synthetic numeric calculations."""
+        heading = self.stage("EX", title, subtitle)
+        lines = VGroup(*[Text(value, font_size=24) for value in expressions])
+        lines.arrange(DOWN, aligned_edge=LEFT, buff=0.32).move_to(DOWN * 0.13)
+        note_text = self.ko(note, 18)
+        note_text.to_edge(DOWN, buff=0.36)
+        self.play(FadeIn(heading))
+        for line in lines:
+            self.play(FadeIn(line, shift=RIGHT * 0.18), run_time=0.75)
+        self.play(FadeIn(note_text))
+        self.wait(1.0)
+        self.play(FadeOut(VGroup(heading, lines, note_text)))
 
     def show_architecture_location(self, stage_index):
         # Short paper-figure map before each chapter; avoid obstructing local math.
@@ -201,6 +242,14 @@ class ViTFullPipeline(Scene):
         # Do not fade out self.focus_row.
 
     def show_projection(self):
+        self.numeric_demo(
+            "Linear Projection: Numeric Example",
+            "입력 벡터와 Weight 열의 dot product가 출력 원소가 됩니다.",
+            ("x = [1, 2, 0, 1]    W column = [0.2, -0.1, 0.5, 0.3]",
+             "y = 1*0.2 + 2*(-0.1) + 0*0.5 + 1*0.3",
+             "y = 0.3"),
+            "4차원으로 축소한 설명용 숫자 예시입니다.",
+        )
         header = self.stage("04", "Linear Projection", "입력 벡터 x와 학습 가능한 Weight Matrix W를 곱합니다.")
         x = self.focus_row
 
@@ -423,6 +472,15 @@ class ViTFullPipeline(Scene):
         self.wait(0.5)
         self.play(FadeOut(VGroup(header, query, keys, scores, query_tag, keys_tag, scores_tag)))
 
+        self.numeric_demo(
+            "Dot Product: Numeric Example",
+            "대응 원소를 곱하고 모두 합하면 scalar score가 됩니다.",
+            ("q = [0.2, 0.7, -0.1]   k = [0.5, -0.3, 0.9]",
+             "q dot k = 0.2*0.5 + 0.7*(-0.3) + (-0.1)*0.9",
+             "q dot k = -0.20   (before scaling)"),
+            "3차원 toy example이며 실제 Attention 값이 아닙니다.",
+        )
+
         # Dot product close-up: coordinatewise multiply and summation -> scalar.
         head = self.stage("09", "Dot Product", "Query와 Key의 대응 원소를 곱한 뒤 모두 더합니다.")
         qvals = VGroup(*[Text(f"q{i}", font_size=24, color=BLUE_B) for i in range(1, 4)])
@@ -481,6 +539,14 @@ class ViTFullPipeline(Scene):
         self.play(FadeOut(VGroup(header, cells, qnames, knames, shape, note, first)))
 
 
+        self.numeric_demo(
+            "Softmax: Numeric Example",
+            "Score를 exp로 변환한 뒤 합으로 나누어 정규화합니다.",
+            ("scores = [0, 0, 0]",
+             "softmax(scores) = [1/3, 1/3, 1/3]",
+             "sum(weights) = 1"),
+            "간단한 정확한 수치 예시이며 학습된 모델의 결과가 아닙니다.",
+        )
         header = self.stage("10", "Softmax & Weighted Sum",
                             "관련도를 정규화해 Value의 가중합을 만듭니다.")
         scores = VGroup(*[
@@ -555,6 +621,14 @@ class ViTFullPipeline(Scene):
         self.play(FadeOut(VGroup(header, input_matrix, heads, concat, output, cap)))
 
     def encoder(self):
+        self.numeric_demo(
+            "Residual Addition: Numeric Example",
+            "우회한 입력을 Sublayer 출력에 elementwise addition합니다.",
+            ("input        = [0.2, 0.5, 0.1]",
+             "sublayer     = [0.4, 0.1, 0.3]",
+             "added result = [0.6, 0.6, 0.4]"),
+            "Residual은 Concat이 아닌 원소별 덧셈입니다.",
+        )
         # A detail view of the ViT pre-LN encoder, with two residual paths.
         # Show a physical bypass path and a plus node for each sublayer.
         for number, title, description, operation, color in (
@@ -615,19 +689,45 @@ class ViTFullPipeline(Scene):
             )))
 
     def classification(self):
-        head = self.stage("14", "Classification Head", "마지막 CLS Token을 읽어 클래스를 예측합니다.")
-        sequence = self.matrix(5, highlight_first=True).move_to(LEFT * 3.7 + DOWN * 0.1)
+        header = self.stage("14", "Classification Head",
+                            "마지막 CLS Token에서 예시 클래스 점수를 계산합니다.")
+        sequence = self.matrix(5, highlight_first=True).scale(0.80)
+        sequence.move_to(LEFT * 4.60 + DOWN * 0.25)
         cls = SurroundingRectangle(sequence[0], color=YELLOW, buff=0.09)
-        mlp_frame = Rectangle(width=2.15, height=0.9, color=YELLOW)
-        mlp_text = Text("MLP Head", font_size=24).move_to(mlp_frame)
-        mlp = VGroup(mlp_frame, mlp_text).move_to(RIGHT * 0.1 + DOWN * 0.1)
-        output = self.ko("예측 클래스", 25, WHITE).move_to(RIGHT * 4.25 + DOWN * 0.1)
-        arrow1 = Arrow(sequence[0].get_right() + RIGHT*0.14,
-                       mlp.get_left() + LEFT*0.14, buff=0, color=GREY_B)
-        arrow2 = Arrow(mlp.get_right() + RIGHT*0.14,
-                       output.get_left() + LEFT*0.14, buff=0, color=GREY_B)
-        self.play(FadeIn(head), FadeIn(sequence))
-        self.play(Create(cls))
-        self.play(Create(arrow1), FadeIn(mlp))
-        self.play(Create(arrow2), FadeIn(output))
+        cls_label = Text("CLS", font_size=19, color=YELLOW)
+        cls_label.next_to(sequence[0], LEFT, buff=0.20)
+        frame = Rectangle(width=1.95, height=1.0, color=YELLOW)
+        name = Text("MLP Head", font_size=22).move_to(frame)
+        mlp = VGroup(frame, name).move_to(LEFT * 1.1 + DOWN * 0.25)
+
+        categories = ("bird", "car", "dog", "cat")
+        probabilities = (0.02, 0.05, 0.13, 0.80)
+        rows = VGroup()
+        for label, value in zip(categories, probabilities):
+            text = Text(f"{label}  {value:.2f}", font_size=19,
+                        color=YELLOW if label == "cat" else WHITE)
+            bar = Rectangle(width=max(0.08, value * 2.2), height=0.20,
+                            stroke_width=0, fill_color=YELLOW if label == "cat" else BLUE_B,
+                            fill_opacity=0.85)
+            line = VGroup(text, bar).arrange(RIGHT, buff=0.20)
+            rows.add(line)
+        rows.arrange(DOWN, aligned_edge=LEFT, buff=0.33)
+        rows.move_to(RIGHT * 3.8 + DOWN * 0.10)
+        pred = Text("Prediction: cat", font_size=25, color=YELLOW)
+        pred.next_to(rows, DOWN, buff=0.33)
+        note = self.ko("임의의 입력에 대한 설명용 Class Probability 예시입니다.", 18)
+        note.to_edge(DOWN, buff=0.33)
+        link1 = Arrow(sequence[0].get_right()+RIGHT*0.10,
+                      mlp.get_left()+LEFT*0.10, buff=0.0,
+                      color=GREY_B, stroke_width=2)
+        link2 = Arrow(mlp.get_right()+RIGHT*0.10,
+                      rows.get_left()+LEFT*0.14, buff=0.0,
+                      color=GREY_B, stroke_width=2)
+        self.play(FadeIn(header), FadeIn(sequence), Create(cls), FadeIn(cls_label))
+        self.play(Create(link1), FadeIn(mlp))
+        self.play(Create(link2))
+        for line in rows:
+            self.play(FadeIn(line, shift=RIGHT*0.12), run_time=0.50)
+        selected = SurroundingRectangle(rows[-1], color=YELLOW, buff=0.10)
+        self.play(Create(selected), FadeIn(pred), FadeIn(note))
         self.wait(1.7)

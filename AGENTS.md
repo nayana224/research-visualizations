@@ -42,3 +42,11 @@ Create one coherent educational animation with Manim Community Edition 0.20.1:
 - Residual addition is an elementwise addition of the bypassed input to the sublayer output, after Pre-LN and the operation.
 - Paper figures are conceptual references. Do not copy copyrighted imagery or duplicate its exact layout; reproduce technical relationships in original Manim graphics.
 - Explicitly label synthetic values/shades and avoid implying random shapes constitute measured attention maps.
+
+## Numeric demonstrations and classification (2026-10-09)
+- Show an original whole-model Figure 1-inspired overview at the start, then show the active component before local explanations. Preserve object identity across stage 03 → 04.
+- Explain dot products with concrete coordinatewise multiplication, summation, scalar output; distinguish unscaled from scaled scores.
+- Show **mathematically correct** toy examples. Softmax weights must sum to 1; residual example must add coordinatewise; class probabilities must sum to 1.
+- Clearly identify all toy values as illustrative, not measured model inference.
+- Close with a CLS → MLP Head → class probability bars → highlighted class prediction animation. Class names and numbers are examples, not claims about a real image.
+- Be accurate about the published ViT diagram while creating original vectors and layout; do not embed paper photo assets unless their reuse rights are confirmed.
