@@ -164,6 +164,85 @@ class ViTFullPipeline(Scene):
         self.wait(0.9)
         self.play(FadeOut(VGroup(header, patches, rows, patch_caption, row_caption)))
 
+    def show_projection(self):
+        header = self.heading("04  Linear Projection", "(4, 12) @ (12, 6) = (4, 6)")
+        subtitle = self.ko("입력 벡터에 학습 가능한 Weight Matrix를 곱합니다.", 20)
+        subtitle.next_to(header, DOWN, buff=0.20)
+
+        x = self.vector(12, height=0.42).move_to(LEFT * 4.25 + DOWN * 0.12)
+        weights = VGroup()
+        for r in range(12):
+            row = VGroup()
+            for c in range(6):
+                cell = Rectangle(width=0.22, height=0.17,
+                                 stroke_color=WHITE, stroke_width=0.5)
+                cell.set_fill((BLUE_B, GREEN_B, ORANGE)[(r+c) % 3], opacity=0.85)
+                row.add(cell)
+            row.arrange(RIGHT, buff=0.018)
+            weights.add(row)
+        weights.arrange(DOWN, buff=0.016).move_to(DOWN * 0.08)
+        y = VGroup()
+        for i in range(6):
+            cell = Rectangle(width=0.28, height=0.42,
+                             stroke_color=WHITE, stroke_width=1)
+            cell.set_fill((BLUE_B, GREEN_B, ORANGE)[i % 3], opacity=0.86)
+            y.add(cell)
+        y.arrange(RIGHT, buff=0.03).move_to(RIGHT * 4.0 + DOWN * 0.12)
+        symbols = VGroup(
+            Text("@", font_size=38).move_to(LEFT * 2.3),
+            Text("=", font_size=38).move_to(RIGHT * 2.2),
+        )
+        labels = VGroup(
+            self.label("x  (1, 12)", x),
+            self.label("W  (12, 6)", weights),
+            self.label("y  (1, 6)", y),
+        )
+        self.play(FadeIn(header), FadeIn(subtitle), FadeIn(x), FadeIn(labels[0]))
+        self.play(FadeIn(symbols[0]), FadeIn(weights), FadeIn(labels[1]))
+        self.play(FadeIn(symbols[1]))
+        for col in range(6):
+            selected = VGroup(*[weights[r][col] for r in range(12)])
+            mark = SurroundingRectangle(selected, color=YELLOW, buff=0.055)
+            self.play(Create(mark), run_time=0.18)
+            self.play(TransformFromCopy(VGroup(x, selected), y[col]), run_time=0.32)
+            self.play(FadeOut(mark), run_time=0.15)
+        self.play(FadeIn(labels[2]))
+        self.wait(0.7)
+        self.play(FadeOut(VGroup(header, subtitle, x, weights, y, symbols, labels)))
+
+        header = self.heading("04  Linear Projection", "Same Weight Matrix for every patch")
+        subtitle = self.ko("네 개의 Patch에 동일한 W를 적용합니다.", 20)
+        subtitle.next_to(header, DOWN, buff=0.20)
+        inputs = VGroup()
+        outputs = VGroup()
+        for i in range(4):
+            vec = self.vector(12).move_to(
+                LEFT * 3.7 + UP * (1.5 - i) * 0.67 + DOWN * 0.07
+            )
+            inputs.add(vec)
+            out = VGroup()
+            for j in range(6):
+                cell = Rectangle(width=0.26, height=0.36,
+                                 stroke_color=WHITE, stroke_width=1)
+                cell.set_fill((BLUE_B, GREEN_B, ORANGE)[(i+j) % 3], opacity=0.85)
+                out.add(cell)
+            out.arrange(RIGHT, buff=0.03)
+            out.move_to(RIGHT * 3.7 + UP * (1.5-i) * 0.67 + DOWN * 0.07)
+            outputs.add(out)
+        frame = Rectangle(width=2.05, height=1.22, color=YELLOW)
+        name = Text("Linear\nW (12, 6)", font_size=22, color=YELLOW)
+        name.move_to(frame)
+        linear = VGroup(frame, name)
+        labels = VGroup(self.label("(4, 12)", inputs),
+                        self.label("(4, 6)", outputs))
+        self.play(FadeIn(header), FadeIn(subtitle), FadeIn(inputs),
+                  FadeIn(labels[0]), FadeIn(linear))
+        for i in range(4):
+            self.play(TransformFromCopy(inputs[i], outputs[i]), run_time=0.48)
+        self.play(FadeIn(labels[1]))
+        self.wait(0.95)
+        self.play(FadeOut(VGroup(header, subtitle, inputs, outputs, linear, labels)))
+
     def ko(self, content, size=22, color=GREY_B):
         return Text(content, font=KFONT, font_size=size, color=color)
 
