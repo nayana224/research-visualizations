@@ -33,6 +33,8 @@ class ViTFullPipeline(Scene):
             self.classification,
         )
         for index, stage in enumerate(stages):
+            if index != 3:  # The patch vector must remain onscreen during 03 -> 04.
+                self.show_architecture_location(index)
             stage()
             # Some individual scenes intentionally leave their final frame on screen.
             # Remove everything except the persistent title before the next stage.
@@ -42,6 +44,31 @@ class ViTFullPipeline(Scene):
                 leftovers = [item for item in self.mobjects if item is not title and item is not keep]
                 if leftovers:
                     self.play(*[FadeOut(item) for item in leftovers], run_time=0.45)
+
+    def show_architecture_location(self, stage_index):
+        # Short paper-figure map before each chapter; avoid obstructing local math.
+        names = ("Image", "Patch Embedding", "CLS + Position",
+                 "Transformer Encoder x L", "MLP Head")
+        active = (0, 1, 1, 1, 2, 3, 3, 4)[stage_index]
+        cards = VGroup()
+        for i, name in enumerate(names):
+            frame = Rectangle(width=2.16, height=0.64,
+                              color=YELLOW if i == active else GREY_B,
+                              stroke_width=2 if i == active else 1)
+            label = Text(name, font_size=17,
+                         color=YELLOW if i == active else WHITE).move_to(frame)
+            cards.add(VGroup(frame, label))
+        cards.arrange(RIGHT, buff=0.24).move_to(DOWN * 0.15)
+        arrows = VGroup()
+        for i in range(4):
+            arrows.add(Arrow(cards[i].get_right(), cards[i+1].get_left(),
+                             buff=0.035, color=GREY_B, stroke_width=2))
+        notice = self.ko("전체 ViT 구조에서 현재 설명하는 위치", 22)
+        notice.next_to(cards, UP, buff=0.55)
+        self.play(FadeIn(cards), FadeIn(notice), run_time=0.48)
+        self.play(*[Create(arrow) for arrow in arrows], run_time=0.45)
+        self.wait(0.45)
+        self.play(FadeOut(VGroup(cards, arrows, notice)), run_time=0.38)
 
     def heading(self, label, detail):
         main = Text(label, font_size=26)
@@ -396,6 +423,29 @@ class ViTFullPipeline(Scene):
         self.wait(0.5)
         self.play(FadeOut(VGroup(header, query, keys, scores, query_tag, keys_tag, scores_tag)))
 
+        # Dot product close-up: coordinatewise multiply and summation -> scalar.
+        head = self.stage("09", "Dot Product", "Query와 Key의 대응 원소를 곱한 뒤 모두 더합니다.")
+        qvals = VGroup(*[Text(f"q{i}", font_size=24, color=BLUE_B) for i in range(1, 4)])
+        kvals = VGroup(*[Text(f"k{i}", font_size=24, color=GREEN_B) for i in range(1, 4)])
+        qvals.arrange(RIGHT, buff=0.48).move_to(LEFT * 2.6 + UP * 0.5)
+        kvals.arrange(RIGHT, buff=0.48).move_to(LEFT * 2.6 + DOWN * 0.55)
+        products = VGroup(*[Text(f"q{i}k{i}", font_size=24, color=YELLOW)
+                            for i in range(1, 4)])
+        products.arrange(RIGHT, buff=0.18).move_to(RIGHT * 2.85 + UP * 0.18)
+        plus = Text("+", font_size=29).move_to(RIGHT * 2.85 + DOWN * 0.48)
+        scalar = Text("score = sum(qi ki)", font_size=23)
+        scalar.move_to(DOWN * 1.55)
+        self.play(FadeIn(head), FadeIn(qvals), FadeIn(kvals))
+        for i in range(3):
+            self.play(TransformFromCopy(VGroup(qvals[i], kvals[i]), products[i]),
+                      run_time=0.62)
+        self.play(FadeIn(plus), FadeIn(scalar))
+        note = self.ko("3차원 예시입니다. 실제 차원은 Head Dimension에 따라 달라집니다.", 17)
+        note.to_edge(DOWN, buff=0.38)
+        self.play(FadeIn(note))
+        self.wait(0.75)
+        self.play(FadeOut(VGroup(head, qvals, kvals, products, plus, scalar, note)))
+
         # Full paper-style attention map after the detailed single-query example.
         header = self.stage("09", "Attention Matrix", "모든 Query와 Key의 비교 결과는 5×5 행렬입니다.")
         qnames = VGroup(*[Text(f"Q{i}", font_size=17, color=BLUE_B) for i in range(5)])
@@ -488,8 +538,19 @@ class ViTFullPipeline(Scene):
         self.play(FadeIn(header), FadeIn(input_matrix))
         for h in heads:
             self.play(TransformFromCopy(input_matrix, h), run_time=0.85)
-        self.play(TransformFromCopy(heads, concat), run_time=0.9)
+        # Materialize feature-wise concatenation: (5,3) + (5,3) -> (5,6).
+        left_features = self.matrix(5, ncols=3, shades=(BLUE_B,)).scale(0.65)
+        right_features = self.matrix(5, ncols=3, shades=(GREEN_B,)).scale(0.65)
+        joined = VGroup(left_features, right_features).arrange(RIGHT, buff=0.04)
+        joined.move_to(concat.get_center() + UP * 1.30)
+        joined_tag = Text("axis=-1: (5,3) + (5,3) = (5,6)", font_size=17)
+        joined_tag.next_to(joined, UP, buff=0.12)
+        self.play(TransformFromCopy(heads[0], left_features),
+                  TransformFromCopy(heads[1], right_features), run_time=1.1)
+        self.play(FadeIn(joined_tag))
+        self.play(TransformFromCopy(joined, concat), run_time=0.8)
         self.play(TransformFromCopy(concat, output), FadeIn(cap), run_time=1.0)
+        self.play(FadeOut(joined), FadeOut(joined_tag))
         self.wait(0.85)
         self.play(FadeOut(VGroup(header, input_matrix, heads, concat, output, cap)))
 

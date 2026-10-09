@@ -32,3 +32,13 @@ Create one coherent educational animation with Manim Community Edition 0.20.1:
 - Draw residuals as an actual bypass with an addition node, rather than a label attached to the output. Pre-LN must show LayerNorm before the sublayer.
 - Keep detail readable at 720p: avoid tiny type, uncontrolled z-order, and lines crossing other blocks; allow a dedicated close-up instead of cramming a full figure onto the screen.
 - Visual values in a colored attention map are illustrative unless actually computed; captions must disclose that.
+
+## Mathematical narration and global structure
+- Begin each conceptual section with a compact, original architecture map derived from ViT Figure 1, highlighting the component being explained. Remove the map before detailed calculation to protect readability.
+- Use precise language: Query–Key score is a dot product, followed by scale by sqrt(d_k); Softmax normalizes a row of scores; the normalized row weights Values. Never describe a dot product solely as a vague "comparison".
+- A projection maps x via a *learned* matrix. Demonstrate matching scalar products and their sum before showing output vectors.
+- A Head is a parallel attention computation with its own projected Q_i, K_i and V_i. Do not imply that each head is only a decorative rectangle.
+- Concat joins head features along the last dimension: for two heads, (5,3) and (5,3) become (5,6), not addition or stacking along token dimension; show the physical joining.
+- Residual addition is an elementwise addition of the bypassed input to the sublayer output, after Pre-LN and the operation.
+- Paper figures are conceptual references. Do not copy copyrighted imagery or duplicate its exact layout; reproduce technical relationships in original Manim graphics.
+- Explicitly label synthetic values/shades and avoid implying random shapes constitute measured attention maps.
