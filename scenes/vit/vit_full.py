@@ -9,7 +9,15 @@ from manim import (
     WHITE, YELLOW, Create, SurroundingRectangle, Arrow, LaggedStart,
     MathTex,
 )
-from scenes.vit.patch_embedding import ViTPatchEmbedding
+# Manim loads scene files by path, so the repository root may not be on sys.path.
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+
+_patch_path = Path(__file__).with_name("patch_embedding.py")
+_spec = spec_from_file_location("_vit_patch_embedding", _patch_path)
+_patch_module = module_from_spec(_spec)
+_spec.loader.exec_module(_patch_module)
+ViTPatchEmbedding = _patch_module.ViTPatchEmbedding
 
 COLORS = (BLUE_D, GREEN_B, ORANGE)
 KFONT = "Noto Sans CJK KR"
