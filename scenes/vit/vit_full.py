@@ -49,7 +49,7 @@ class ViTFullPipeline(Scene):
     def paper_style_intro(self):
         """An original miniature overview patterned on the ViT paper's Figure 1."""
         items = (
-            ("Image", BLUE_B), ("Patch\nProjection", ORANGE),
+            ("Image", BLUE_B), ("Flatten +\nProjection", ORANGE),
             ("CLS + Position", GREEN_B), ("Encoder x L", BLUE_D),
             ("MLP Head", YELLOW), ("Class", ORANGE),
         )
@@ -358,7 +358,7 @@ class ViTFullPipeline(Scene):
         return tag
 
     def cls_and_position(self):
-        head = self.stage("05", "CLS Token", "Patch Embedding 앞에 CLS Token을 추가합니다.")
+        head = self.stage("05", "CLS Token", "학습 가능한 CLS embedding을 Patch Token 맨 앞에 추가합니다.")
         patches = self.matrix(4).move_to(LEFT * 3.0 + DOWN * 0.2)
         destination = self.matrix(5, highlight_first=True).move_to(RIGHT * 2.7 + DOWN * 0.1)
         cls = self.matrix(1, highlight_first=True).move_to(LEFT * 3.0 + UP * 1.5)
@@ -542,8 +542,8 @@ class ViTFullPipeline(Scene):
         self.numeric_demo(
             "Softmax: Numeric Example",
             "Score를 exp로 변환한 뒤 합으로 나누어 정규화합니다.",
-            ("scores = [0, 0, 0]",
-             "softmax(scores) = [1/3, 1/3, 1/3]",
+            ("scaled scores = [0, 0, 0]",
+             "softmax = [1/3, 1/3, 1/3]",
              "sum(weights) = 1"),
             "간단한 정확한 수치 예시이며 학습된 모델의 결과가 아닙니다.",
         )
@@ -577,13 +577,16 @@ class ViTFullPipeline(Scene):
         self.play(FadeIn(softmax), Create(arrow1))
         self.play(Create(arrow2), LaggedStart(*[FadeIn(w) for w in weights], lag_ratio=0.12))
         self.play(FadeIn(labels[1]))
+        value_label = Text("weighted sum of V rows", font_size=18, color=ORANGE)
+        value_label.next_to(result, UP, buff=0.22)
+        self.play(FadeIn(value_label), run_time=0.35)
         self.play(TransformFromCopy(weights, result), FadeIn(labels[2]), run_time=1.2)
         note = self.ko("가중치는 설명용 예시이며 실제 계산값이 아닙니다.", 17)
         note.to_edge(DOWN, buff=0.35)
         self.play(FadeIn(note))
         self.wait(0.7)
         self.play(FadeOut(VGroup(header, scores, weights, softmax, labels, result,
-                                 arrow1, arrow2, note)))
+                                 arrow1, arrow2, note, value_label)))
 
         header = self.stage("11", "Multi-Head Attention",
                             "서로 다른 Head의 출력을 Concat하고 Linear로 결합합니다.")
@@ -715,7 +718,7 @@ class ViTFullPipeline(Scene):
         rows.move_to(RIGHT * 3.8 + DOWN * 0.10)
         pred = Text("Prediction: cat", font_size=25, color=YELLOW)
         pred.next_to(rows, DOWN, buff=0.33)
-        note = self.ko("임의의 입력에 대한 설명용 Class Probability 예시입니다.", 18)
+        note = self.ko("임의의 Class Probability 예시입니다. 실제 추론 결과가 아닙니다.", 18)
         note.to_edge(DOWN, buff=0.33)
         link1 = Arrow(sequence[0].get_right()+RIGHT*0.10,
                       mlp.get_left()+LEFT*0.10, buff=0.0,

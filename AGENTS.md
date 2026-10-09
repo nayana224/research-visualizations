@@ -50,3 +50,13 @@ Create one coherent educational animation with Manim Community Edition 0.20.1:
 - Clearly identify all toy values as illustrative, not measured model inference.
 - Close with a CLS → MLP Head → class probability bars → highlighted class prediction animation. Class names and numbers are examples, not claims about a real image.
 - Be accurate about the published ViT diagram while creating original vectors and layout; do not embed paper photo assets unless their reuse rights are confirmed.
+
+## Paper-grounded ViT fidelity (source PDFs in this repository)
+- Primary references: `references/papers/05_VisionTransformer_ViT_2020.pdf`, Figure 1 and Section 3.1 (equations 1–4); `references/papers/04_AttentionIsAllYouNeed_2017.pdf`, Section 3.2.1–3.2.2 (scaled dot-product, multi-head).
+- Before changing an operation, check its defining equation in these PDFs, then annotate its real shape separately from reduced toy dimensions. Cite page/section in code comments only where it clarifies a non-obvious choice.
+- In Figure 1, the trainable CLS embedding is prepended to projected patches, then 1-D learned positional embeddings are added element-wise.
+- ViT encoder equations: z'_l = MSA(LN(z_(l-1))) + z_(l-1); z_l = MLP(LN(z'_l)) + z'_l. LN precedes both sublayers; each has its own residual skip. The MLP has two layers with a GELU nonlinearity.
+- Scaled dot-product attention: A = softmax(QK^T / sqrt(d_k)); output = A V. Show the scaling step explicitly in narration before Softmax. A single dot product alone is a score, not the full attention operation.
+- Classification uses the final CLS hidden state (not averaging all patch tokens). Original ViT pretrained classification uses a one-hidden-layer MLP; fine-tuning uses a single linear layer. Do not misrepresent illustrative class probabilities as output from a pretrained model.
+- Keep the original Figure 1 as a conceptual source for the architecture schematic. If an exact PDF figure image is embedded, verify appropriate redistribution rights; otherwise draw original Manim geometry.
+- Numerical values, matrix heatmaps and visual class outputs are explicitly illustrative unless calculations are executed. Ensure examples remain mathematically consistent.
