@@ -123,7 +123,7 @@ class ViTFullPipeline(ViTPatchEmbedding):
         qs.arrange(DOWN, buff=0.28).move_to(LEFT * 0.7 + DOWN * 0.1)
         arrow = Arrow(x.get_right()+RIGHT*0.13, qs.get_left()+LEFT*0.2, buff=0,
                       color=GREY_B, stroke_width=3)
-        formula = MathTex(r"\\mathrm{softmax}\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V")
+        formula = MathTex(r"\mathrm{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V")
         formula.scale(0.76).move_to(RIGHT * 3.35 + DOWN * 0.15)
         self.play(FadeIn(head), FadeIn(x), Create(arrow))
         self.play(LaggedStart(*[FadeIn(box) for box in qs], lag_ratio=0.25))
