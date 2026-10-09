@@ -7,6 +7,10 @@
 ![Docker](https://img.shields.io/badge/Development-Docker-2496ED)
 ![Status](https://img.shields.io/badge/Status-In%20Development-orange)
 
+![ViT Architecture — 대표 도식](assets/README/vit-architecture.svg)
+
+*ViT 전체 구조를 설명하기 위한 자체 제작 도식입니다. 실제 영상 캡처나 학습된 모델의 출력은 아닙니다.*
+
 **Research Visualizations**는 Deep Learning, Computer Vision, Robotics 분야의 논문과 핵심 알고리즘을 **Manim** 애니메이션으로 시각화하는 프로젝트입니다.
 
 현재는 **Vision Transformer (ViT)** 를 중심으로, 논문 Figure에서 보여주는 전체 모델 구조와 실제 연산 과정을 순서대로 연결하는 교육용 영상을 개발하고 있습니다.
