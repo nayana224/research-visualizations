@@ -588,6 +588,35 @@ class ViTFullPipeline(Scene):
         self.play(FadeOut(VGroup(header, scores, weights, softmax, labels, result,
                                  arrow1, arrow2, note, value_label)))
 
+        # Numerically accurate reduction of attention-weighted value vectors.
+        head = self.stage("10", "Weighted Sum of Values",
+                          "Attention Weight로 각 Value를 곱한 뒤 벡터를 더합니다.")
+        weights_ex = ("0.25", "0.75")
+        value_vectors = ("[2, 0]", "[0, 4]")
+        factors = VGroup()
+        for i in range(2):
+            left = Text(weights_ex[i], font_size=26, color=GREEN_B)
+            sign = Text("x", font_size=25)
+            value = Text(value_vectors[i], font_size=26, color=ORANGE)
+            row = VGroup(left, sign, value).arrange(RIGHT, buff=0.25)
+            factors.add(row)
+        factors.arrange(DOWN, buff=0.38).move_to(LEFT * 2.2 + DOWN * 0.15)
+        plus_sign = Text("+", font_size=30).move_to(RIGHT * 0.45 + DOWN * 0.15)
+        out = Text("[0.5, 3.0]", font_size=29, color=YELLOW)
+        out.move_to(RIGHT * 3.1 + DOWN * 0.15)
+        formula = Text("0.25*[2,0] + 0.75*[0,4]", font_size=21)
+        formula.next_to(out, DOWN, buff=0.45)
+        disclaimer = self.ko("2개 Value로 축소한 수치 예시입니다.", 18)
+        disclaimer.to_edge(DOWN, buff=0.34)
+        self.play(FadeIn(head), FadeIn(disclaimer))
+        for item in factors:
+            self.play(FadeIn(item), run_time=0.5)
+        self.play(FadeIn(plus_sign), FadeIn(formula))
+        self.play(TransformFromCopy(factors, out), run_time=1.3)
+        self.wait(0.65)
+        self.play(FadeOut(VGroup(head, factors, plus_sign, out,
+                                 formula, disclaimer)))
+
         header = self.stage("11", "Multi-Head Attention",
                             "서로 다른 Head의 출력을 Concat하고 Linear로 결합합니다.")
         input_matrix = self.matrix(5, highlight_first=True).move_to(LEFT * 4.85 + DOWN * 0.12)
