@@ -31,14 +31,24 @@ class ViTFullPipeline(ViTPatchEmbedding):
         title = Text("Vision Transformer | ViT", font_size=34)
         title.to_edge(UP, buff=0.28)
         self.add(title)
-        self.show_partition()
-        self.show_one_flatten()
-        self.show_patch_matrix()
-        self.show_projection()
-        self.cls_and_position()
-        self.attention()
-        self.encoder()
-        self.classification()
+        stages = (
+            self.show_partition,
+            self.show_one_flatten,
+            self.show_patch_matrix,
+            self.show_projection,
+            self.cls_and_position,
+            self.attention,
+            self.encoder,
+            self.classification,
+        )
+        for index, stage in enumerate(stages):
+            stage()
+            # Some individual scenes intentionally leave their final frame on screen.
+            # Remove everything except the persistent title before the next stage.
+            if index < len(stages) - 1:
+                leftovers = [item for item in self.mobjects if item is not title]
+                if leftovers:
+                    self.play(*[FadeOut(item) for item in leftovers], run_time=0.45)
 
     def ko(self, content, size=22, color=GREY_B):
         return Text(content, font=KFONT, font_size=size, color=color)
