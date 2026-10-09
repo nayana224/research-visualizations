@@ -16,3 +16,6 @@ This repository creates short, accurate educational animations with Manim.
 
 - Keep architecture keywords in English, but use concise Korean explanations where they improve understanding. Use a Korean-capable font and verify glyph rendering.
 - Full-pipeline videos must reuse validated stage choreography rather than copying unrelated scene files into one layout.
+
+- For adjacent stages, preserve and move the same input mobject when it represents the next operation; avoid resetting it just to explain a new step.
+- Animate each calculation as input -> operator/weights -> output before showing summary shapes; narration stays concise Korean, keywords English.
