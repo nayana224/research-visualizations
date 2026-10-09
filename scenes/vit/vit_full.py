@@ -339,92 +339,180 @@ class ViTFullPipeline(Scene):
         self.play(FadeOut(VGroup(head, tokens, outline, cls_caption, caption)))
 
     def attention(self):
-        head = self.stage("08", "Q, K, V Projection", "같은 입력에서 서로 다른 세 표현을 생성합니다.")
-        x = self.matrix(5, highlight_first=True).move_to(LEFT * 4.7 + DOWN * 0.1)
-        outputs = VGroup()
-        for idx, name in enumerate(("Q", "K", "V")):
-            matrix = self.matrix(5, shades=(COLORS[idx],))
-            matrix.scale(0.58)
-            box = VGroup(matrix, Text(name, font_size=23, color=COLORS[idx]))
-            box[1].next_to(matrix, UP, buff=0.12)
-            box.move_to(RIGHT * (idx * 2.4 - 0.4) + DOWN * 0.1)
-            outputs.add(box)
-        self.play(FadeIn(head), FadeIn(x))
-        self.play(LaggedStart(
-            *[TransformFromCopy(x, outputs[i][0]) for i in range(3)],
-            lag_ratio=0.26,
-        ), run_time=2.2)
-        self.play(*[FadeIn(box[1]) for box in outputs])
+        # A token is projected through three distinct learned matrices.
+        header = self.stage("08", "Q / K / V Projection",
+                            "같은 Token을 세 종류의 Weight Matrix로 변환합니다.")
+        source = self.matrix(5, highlight_first=True).move_to(LEFT * 4.3 + DOWN * 0.12)
+        source_tag = self.label("Z0  (5, 6)", source)
+        destinations = VGroup()
+        projections = VGroup()
+        for i, (symbol, color) in enumerate((("Q", BLUE_D), ("K", GREEN_B), ("V", ORANGE))):
+            weight = VGroup(
+                Rectangle(width=1.35, height=0.52, color=color),
+                Text("W" + symbol, font_size=20, color=color),
+            )
+            weight[1].move_to(weight[0])
+            dest = self.matrix(5, shades=(color,)).scale(0.52)
+            group = VGroup(dest, Text(symbol + "  (5, 6)", font_size=19, color=color))
+            group[1].next_to(dest, DOWN, buff=0.15)
+            group.move_to(RIGHT * (0.2 + 2.4 * i) + DOWN * 0.45)
+            weight.move_to(group.get_center() + UP * 1.55)
+            projections.add(weight)
+            destinations.add(group)
+        self.play(FadeIn(header), FadeIn(source), FadeIn(source_tag))
+        for i in range(3):
+            self.play(FadeIn(projections[i]), run_time=0.4)
+            self.play(
+                TransformFromCopy(source, destinations[i][0]), run_time=0.75
+            )
+            self.play(FadeIn(destinations[i][1]), run_time=0.22)
+        self.wait(0.75)
+        self.play(FadeOut(VGroup(header, source, source_tag, projections, destinations)))
+
+        # Explain a single query's five similarities before displaying softmax.
+        header = self.stage("09", "Attention Scores",
+                            "한 Query를 모든 Key와 비교하여 관련도를 구합니다.")
+        query = self.matrix(1, shades=(BLUE_D,)).move_to(LEFT * 3.65 + DOWN * 0.1)
+        keys = self.matrix(5, shades=(GREEN_B,)).move_to(DOWN * 0.1)
+        scores = VGroup()
+        for i in range(5):
+            bar = Rectangle(width=0.30 + 0.18 * (i % 3), height=0.33,
+                            stroke_color=ORANGE, stroke_width=1)
+            bar.set_fill(ORANGE, opacity=0.25 + 0.13 * (i % 3))
+            scores.add(bar)
+        scores.arrange(DOWN, buff=0.22).move_to(RIGHT * 3.85 + DOWN * 0.1)
+        query_tag = self.label("Query  (1, 6)", query)
+        keys_tag = self.label("Keys  (5, 6)", keys)
+        scores_tag = self.label("QKᵀ  (1, 5)", scores)
+        self.play(FadeIn(header), FadeIn(query), FadeIn(keys),
+                  FadeIn(query_tag), FadeIn(keys_tag))
+        for i in range(5):
+            q_outline = SurroundingRectangle(query, color=YELLOW, buff=0.06)
+            k_outline = SurroundingRectangle(keys[i], color=YELLOW, buff=0.055)
+            self.play(Create(q_outline), Create(k_outline), run_time=0.25)
+            self.play(TransformFromCopy(keys[i], scores[i]), run_time=0.42)
+            self.play(FadeOut(q_outline), FadeOut(k_outline), run_time=0.15)
+        self.play(FadeIn(scores_tag))
+        self.wait(0.5)
+        self.play(FadeOut(VGroup(header, query, keys, scores, query_tag, keys_tag, scores_tag)))
+
+        header = self.stage("10", "Softmax & Weighted Sum",
+                            "관련도를 정규화해 Value의 가중합을 만듭니다.")
+        scores = VGroup(*[
+            Rectangle(width=0.28 + 0.16 * (i % 3), height=0.30,
+                      stroke_color=BLUE_B, stroke_width=1).set_fill(BLUE_B, opacity=0.65)
+            for i in range(5)
+        ]).arrange(DOWN, buff=0.19).move_to(LEFT * 4.4 + DOWN * 0.12)
+        softmax = VGroup(Rectangle(width=2.0, height=0.85, color=YELLOW),
+                         Text("Softmax", font_size=24))
+        softmax[1].move_to(softmax[0])
+        softmax.move_to(LEFT * 1.75 + DOWN * 0.12)
+        weights = VGroup(*[
+            Rectangle(width=w, height=0.28, stroke_width=0,
+                      fill_color=GREEN_B, fill_opacity=0.85)
+            for w in (0.8, 0.35, 0.6, 0.23, 0.5)
+        ]).arrange(DOWN, buff=0.2, aligned_edge=LEFT).move_to(RIGHT * 1.05 + DOWN * 0.12)
+        result = self.matrix(1, shades=(ORANGE, GREEN_B, BLUE_B)).move_to(
+            RIGHT * 4.35 + DOWN * 0.12
+        )
+        labels = VGroup(self.label("Scores", scores),
+                        self.label("Weights", weights),
+                        self.label("Output (1, 6)", result))
+        arrow1 = Arrow(scores.get_right() + RIGHT * 0.1, softmax.get_left() + LEFT * 0.12,
+                       buff=0.05, stroke_width=2, color=GREY_B)
+        arrow2 = Arrow(softmax.get_right() + RIGHT * 0.1, weights.get_left() + LEFT * 0.12,
+                       buff=0.05, stroke_width=2, color=GREY_B)
+        self.play(FadeIn(header), FadeIn(scores), FadeIn(labels[0]))
+        self.play(FadeIn(softmax), Create(arrow1))
+        self.play(Create(arrow2), LaggedStart(*[FadeIn(w) for w in weights], lag_ratio=0.12))
+        self.play(FadeIn(labels[1]))
+        self.play(TransformFromCopy(weights, result), FadeIn(labels[2]), run_time=1.2)
+        note = self.ko("가중치는 설명용 예시이며 실제 계산값이 아닙니다.", 17)
+        note.to_edge(DOWN, buff=0.35)
+        self.play(FadeIn(note))
         self.wait(0.7)
-        self.play(FadeOut(VGroup(head, x, outputs)))
+        self.play(FadeOut(VGroup(header, scores, weights, softmax, labels, result,
+                                 arrow1, arrow2, note)))
 
-        head = self.stage("09", "Scaled Dot-Product Attention", "Q와 K로 관련도를 구하고 V를 가중합합니다.")
-        q = Text("Q", font_size=41, color=BLUE_D)
-        k = Text("K", font_size=41, color=GREEN_B)
-        v = Text("V", font_size=41, color=ORANGE)
-        boxes = VGroup()
-        for txt in (q, k, v):
-            frame = Rectangle(width=1.25, height=0.93, color=txt.get_color())
-            txt.move_to(frame)
-            boxes.add(VGroup(frame, txt))
-        boxes.arrange(RIGHT, buff=1.10).move_to(UP * 0.85)
-        formula = MathTex(
-            r"\operatorname{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V"
-        ).scale(0.95).move_to(DOWN * 0.6)
-        caption = self.ko("Attention Weight로 중요한 Token에 더 집중합니다.", 21)
-        caption.next_to(formula, DOWN, buff=0.55)
-        self.play(FadeIn(head), LaggedStart(*[FadeIn(b) for b in boxes], lag_ratio=0.2))
-        self.play(FadeIn(formula, shift=UP * 0.2))
-        self.play(FadeIn(caption))
-        self.wait(1.2)
-        self.play(FadeOut(VGroup(head, boxes, formula, caption)))
-
-        head = self.stage("10", "Multi-Head Attention", "두 Head의 출력을 결합하고 다시 투영합니다.")
-        source = self.matrix(5, highlight_first=True).move_to(LEFT * 4.65 + DOWN * 0.1)
+        header = self.stage("11", "Multi-Head Attention",
+                            "서로 다른 Head의 출력을 Concat하고 Linear로 결합합니다.")
+        input_matrix = self.matrix(5, highlight_first=True).move_to(LEFT * 4.85 + DOWN * 0.12)
         heads = VGroup()
         for i, color in enumerate((BLUE_B, GREEN_B)):
-            rect = Rectangle(width=2.3, height=0.76, color=color)
-            name = Text(f"Head {i+1}  (5, 3)", font_size=19).move_to(rect)
-            heads.add(VGroup(rect, name))
-        heads.arrange(DOWN, buff=0.45).move_to(LEFT * 0.25 + DOWN * 0.1)
-        output = self.matrix(5).move_to(RIGHT * 4.3 + DOWN * 0.1)
-        label = self.label("Concat + Linear  (5, 6)", output)
-        self.play(FadeIn(head), FadeIn(source))
-        self.play(
-            *[TransformFromCopy(source, heads[i]) for i in range(2)],
-            run_time=1.5,
-        )
-        self.play(TransformFromCopy(heads, output), run_time=1.3)
-        self.play(FadeIn(label))
-        self.wait(0.8)
-        self.play(FadeOut(VGroup(head, source, heads, output, label)))
+            block = VGroup(Rectangle(width=2.0, height=0.65, color=color),
+                           Text(f"Head {i+1}  (5, 3)", font_size=18))
+            block[1].move_to(block[0])
+            heads.add(block)
+        heads.arrange(DOWN, buff=0.48).move_to(LEFT * 1.2 + DOWN * 0.12)
+        concat = VGroup(Rectangle(width=1.6, height=0.85, color=YELLOW),
+                        Text("Concat", font_size=22))
+        concat[1].move_to(concat[0])
+        concat.move_to(RIGHT * 1.55 + DOWN * 0.12)
+        output = self.matrix(5).scale(0.82).move_to(RIGHT * 4.5 + DOWN * 0.12)
+        cap = self.label("Linear (5, 6)", output)
+        self.play(FadeIn(header), FadeIn(input_matrix))
+        for h in heads:
+            self.play(TransformFromCopy(input_matrix, h), run_time=0.85)
+        self.play(TransformFromCopy(heads, concat), run_time=0.9)
+        self.play(TransformFromCopy(concat, output), FadeIn(cap), run_time=1.0)
+        self.wait(0.85)
+        self.play(FadeOut(VGroup(header, input_matrix, heads, concat, output, cap)))
 
     def encoder(self):
-        head = self.stage("11", "Transformer Encoder", "LayerNorm, MSA, MLP와 Residual을 순서대로 적용합니다.")
-        stages = ("Input", "LayerNorm", "MSA", "+ Residual",
-                  "LayerNorm", "MLP", "+ Residual")
+        # ViT uses pre-LN: each sublayer's residual bypasses that entire sublayer.
+        header = self.stage("12", "Transformer Encoder — MSA",
+                            "LayerNorm을 거친 뒤 MSA를 계산하고 입력과 더합니다.")
+        token = self.matrix(5, highlight_first=True).move_to(LEFT * 4.6 + DOWN * 0.10)
+        ln = VGroup(Rectangle(width=1.55, height=0.78, color=BLUE_B),
+                    Text("LayerNorm", font_size=19))
+        ln[1].move_to(ln[0])
+        ln.move_to(LEFT * 1.75 + DOWN * 0.10)
+        msa = VGroup(Rectangle(width=1.40, height=0.78, color=BLUE_B),
+                     Text("MSA", font_size=23))
+        msa[1].move_to(msa[0])
+        msa.move_to(RIGHT * 0.7 + DOWN * 0.10)
+        added = self.matrix(5, highlight_first=True).scale(0.84).move_to(
+            RIGHT * 4.35 + DOWN * 0.10
+        )
+        residual = Text("+ Residual", font_size=20, color=YELLOW)
+        residual.next_to(added, UP, buff=0.15)
+        self.play(FadeIn(header), FadeIn(token))
+        self.play(TransformFromCopy(token, ln), run_time=0.75)
+        self.play(TransformFromCopy(ln, msa), run_time=0.75)
+        self.play(TransformFromCopy(msa, added), run_time=0.75)
+        residual_line = Arrow(token.get_top()+UP*0.15, added.get_top()+UP*0.15,
+                              buff=0.1, path_arc=0, color=YELLOW, stroke_width=2)
+        self.play(Create(residual_line), FadeIn(residual))
+        self.wait(0.7)
+        self.play(FadeOut(VGroup(header, token, ln, msa, added, residual, residual_line)))
+
+        header = self.stage("13", "Transformer Encoder — MLP",
+                            "다시 LayerNorm과 MLP를 거친 뒤 Residual을 더합니다.")
+        source = self.matrix(5, highlight_first=True).move_to(LEFT * 4.5 + DOWN * 0.10)
         blocks = VGroup()
-        for name in stages:
-            rect = Rectangle(width=1.72, height=0.77,
-                             color=YELLOW if "Residual" in name else BLUE_B)
-            txt = Text(name, font_size=18).move_to(rect)
-            blocks.add(VGroup(rect, txt))
-        blocks.arrange(RIGHT, buff=0.16).move_to(DOWN * 0.13)
-        note = self.ko("Residual: 입력을 연산 결과에 다시 더합니다.", 21)
-        note.next_to(blocks, DOWN, buff=0.55)
-        self.play(FadeIn(head))
-        for i, block in enumerate(blocks):
-            self.play(FadeIn(block, shift=RIGHT * 0.15), run_time=0.4)
-            if i in (3, 6):
-                marker = SurroundingRectangle(block, color=YELLOW, buff=0.09)
-                self.play(Create(marker), run_time=0.23)
-                self.play(FadeOut(marker), run_time=0.23)
-        self.play(FadeIn(note))
-        self.wait(0.9)
-        self.play(FadeOut(VGroup(head, blocks, note)))
+        for word in ("LayerNorm", "MLP"):
+            box = Rectangle(width=1.6, height=0.8, color=GREEN_B)
+            text = Text(word, font_size=20).move_to(box)
+            blocks.add(VGroup(box, text))
+        blocks.arrange(RIGHT, buff=1.25).move_to(DOWN * 0.10)
+        dest = self.matrix(5, highlight_first=True).scale(0.84).move_to(
+            RIGHT * 4.5 + DOWN * 0.10
+        )
+        self.play(FadeIn(header), FadeIn(source))
+        self.play(TransformFromCopy(source, blocks[0]), run_time=0.8)
+        self.play(TransformFromCopy(blocks[0], blocks[1]), run_time=0.8)
+        self.play(TransformFromCopy(blocks[1], dest), run_time=0.8)
+        note = self.ko("각 Residual Addition 후에도 Shape은 (5, 6)입니다.", 20)
+        note.next_to(dest, DOWN, buff=0.6)
+        bypass = Arrow(source.get_top()+UP*0.12, dest.get_top()+UP*0.12,
+                       buff=0.1, color=YELLOW, stroke_width=2)
+        self.play(Create(bypass), FadeIn(note))
+        self.wait(0.8)
+        self.play(FadeOut(VGroup(header, source, blocks, dest, bypass, note)))
+
 
     def classification(self):
-        head = self.stage("12", "Classification Head", "마지막 CLS Token을 읽어 클래스를 예측합니다.")
+        head = self.stage("14", "Classification Head", "마지막 CLS Token을 읽어 클래스를 예측합니다.")
         sequence = self.matrix(5, highlight_first=True).move_to(LEFT * 3.7 + DOWN * 0.1)
         cls = SurroundingRectangle(sequence[0], color=YELLOW, buff=0.09)
         mlp_frame = Rectangle(width=2.15, height=0.9, color=YELLOW)

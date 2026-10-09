@@ -1,21 +1,26 @@
 # Agent Guidelines
 
-This repository creates short, accurate educational animations with Manim.
+## Purpose
+Create one coherent educational animation with Manim Community Edition 0.20.1:
+`scenes/vit/vit_full.py` → `ViTFullPipeline` (720p30 by default).
 
-- Prioritize conceptual correctness and readable motion over visual complexity.
-- Use PyTorch-style tensor shapes (C, H, W) for individual images; state batch dimensions explicitly.
-- Never hide a shape change. Show where each dimension comes from, especially channels and flattening order.
-- Focus on one transformation at a time. Fade out or simplify previous objects before introducing new ones.
-- Avoid overlapping objects, labels, arrows, and annotations. Keep labels close to their referents and within frame bounds.
-- Prefer a small number of well-spaced objects; remove redundant arrows, borders, and text.
-- Distinguish illustrative values/colors from numerically calculated outputs.
-- Keep scenes independent, with minimal dependencies and comments.
-- Before calling a scene complete, render it and inspect key frames (opening, each transition, final frame) for clipping and overlap.
-- Do not claim render success without running the render. Report unverified results clearly.
-- Preserve existing work and avoid overwriting uncommitted local changes. Update README commands when adding a scene.
+## Visual language
+- Use English for technical terms (Patch, Token, Projection, Softmax, Residual, etc.) and short plain-Korean subtitles to explain *what happens*.
+- One learning objective per beat. Do not overcrowd the screen with every pipeline component.
+- Preserve a moving object between adjacent steps whenever it is the same tensor. In particular, the first row of stage 03 must be the exact object moved into stage 04.
+- Reveal input → operation (W, Softmax, MSA, MLP) → output. Avoid mere simultaneous FadeIns for a mathematical process.
+- Highlight the specific operands/column/row before the corresponding output appears; dim or clear unrelated geometry.
+- Respect stage transitions: clear only objects that must disappear; never leave hidden accumulated labels/arrows behind.
+- Keep math correct: individual images are (C,H,W); x(1,12) @ W(12,6) = y(1,6); (4,6) + CLS(1,6) → (5,6); positional vectors are added element-wise; two attention heads each have dimension 3; ViT uses pre-LayerNorm and residual additions.
+- Clearly distinguish abstract colored bars or example attention weights from numerically computed results.
 
-- Keep architecture keywords in English, but use concise Korean explanations where they improve understanding. Use a Korean-capable font and verify glyph rendering.
-- Full-pipeline videos must reuse validated stage choreography rather than copying unrelated scene files into one layout.
+## Reference and compatibility
+- Study the animation *principles* in [Imcommit GQA](https://github.com/CodingVillainKor/manimgl-imcommit/blob/master/src/gqa/main.py), [MLA](https://github.com/CodingVillainKor/manimgl-imcommit/blob/master/src/MLA/main.py), and [preLN](https://github.com/CodingVillainKor/manimgl-imcommit/blob/master/src/preln/main.py): target transforms, elementwise emphasis, staged focus, and persistent objects.
+- Do not copy source code or import ManimGL, `manimlib`, or `raenimgl`; project uses Manim CE and must remain independently runnable.
 
-- For adjacent stages, preserve and move the same input mobject when it represents the next operation; avoid resetting it just to explain a new step.
-- Animate each calculation as input -> operator/weights -> output before showing summary shapes; narration stays concise Korean, keywords English.
+## Engineering and validation
+- Keep the single Scene and small, cohesive helpers; minimal comments except for non-obvious continuity and tensor-shape assumptions.
+- Check that all Manim symbols are imported; avoid calling animations on empty or unrendered groups.
+- Render the complete scene and inspect opening, stage transitions, multiplication, attention, residual paths, and closing for overlaps/clipping.
+- Do not claim rendering or visual verification unless actually done. If not available, explicitly mark it unverified.
+- Preserve unrelated work. Document accurate launch commands in README.
