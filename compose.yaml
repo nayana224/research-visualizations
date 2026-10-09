@@ -1,0 +1,21 @@
+services:
+  manim:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: research-visualizations:ubuntu24
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      UV_PROJECT_ENVIRONMENT: /workspace/.venv
+      UV_LINK_MODE: copy
+    volumes:
+      - ./:/workspace
+      - manim-venv:/workspace/.venv
+      - uv-cache:/root/.cache/uv
+    command: bash
+
+volumes:
+  manim-venv:
+  uv-cache:

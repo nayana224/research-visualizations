@@ -1,0 +1,8 @@
+[project]
+name = "research-visualizations"
+version = "0.1.0"
+description = "Educational animations for deep learning and robotics"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "manim>=0.19,<0.21",
+]
