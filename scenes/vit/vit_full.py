@@ -37,7 +37,9 @@ class ViTFullPipeline(Scene):
             # Some individual scenes intentionally leave their final frame on screen.
             # Remove everything except the persistent title before the next stage.
             if index < len(stages) - 1:
-                leftovers = [item for item in self.mobjects if item is not title]
+                # Keep the first patch vector between 03 and 04, otherwise clear.
+                keep = self.focus_row if index == 2 else None
+                leftovers = [item for item in self.mobjects if item is not title and item is not keep]
                 if leftovers:
                     self.play(*[FadeOut(item) for item in leftovers], run_time=0.45)
 
@@ -85,7 +87,7 @@ class ViTFullPipeline(Scene):
         return pieces
 
     def show_partition(self):
-        header = self.heading("01  Patch partition", "x: (3, 4, 4)  |  patch size: 2")
+        header = self.stage("01", "Patch Partition", "RGB 이미지를 채널별로 작은 Patch로 나눕니다.")
         image = self.channel_stack(4, 0.46)
         image.move_to(LEFT * 3.0 + DOWN * 0.25)
         image_caption = Text("RGB channels", font_size=20)
@@ -108,7 +110,7 @@ class ViTFullPipeline(Scene):
         self.play(FadeOut(VGroup(header, image, image_caption, patches, patch_caption)))
 
     def show_one_flatten(self):
-        header = self.heading("02  Flatten one patch", "(3, 2, 2) -> 12 values")
+        header = self.stage("02", "Flatten", "한 Patch의 R, G, B 채널을 한 줄의 벡터로 펼칩니다.")
         patch = self.patch_stack(size=0.62)
         patch.move_to(LEFT * 3.1 + DOWN * 0.1)
         patch_caption = Text("one RGB patch", font_size=20)
@@ -140,108 +142,113 @@ class ViTFullPipeline(Scene):
         self.play(FadeOut(VGroup(header, patch, patch_caption, row, names, explanation)))
 
     def show_patch_matrix(self):
-        header = self.heading("03  Apply to all patches", "4 patches x 12 values = (4, 12)")
+        header = self.stage("03", "Patch Matrix", "네 개 Patch를 각각 12차원 벡터로 펼칩니다.")
         patches = VGroup()
-        rows = VGroup()
+        self.patch_rows = VGroup()
         for i in range(4):
             patch = self.patch_stack(size=0.19)
             patch.move_to(LEFT * 3.4 + UP * (1.5 - i) * 0.92 + DOWN * 0.15)
             patches.add(patch)
-            line = self.vector(12)
-            line.move_to(RIGHT * 1.5 + UP * (1.5 - i) * 0.92 + DOWN * 0.15)
-            rows.add(line)
+            row = self.vector(12)
+            row.move_to(RIGHT * 1.5 + UP * (1.5 - i) * 0.92 + DOWN * 0.15)
+            self.patch_rows.add(row)
+        caption = Text("Patch Matrix  (4, 12)", font_size=21)
+        caption.next_to(self.patch_rows, DOWN, buff=0.30)
+        self.play(FadeIn(header), FadeIn(patches))
+        for i in range(4):
+            self.play(TransformFromCopy(patches[i], self.patch_rows[i]), run_time=0.60)
+        self.play(FadeIn(caption))
+        self.wait(0.40)
 
-        patch_caption = Text("4 patches", font_size=19)
-        patch_caption.next_to(patches, DOWN, buff=0.35)
-        row_caption = Text("Patch matrix  (4, 12)", font_size=19)
-        row_caption.next_to(rows, DOWN, buff=0.35)
-        self.play(FadeIn(header), FadeIn(patches), FadeIn(patch_caption))
-        self.play(LaggedStart(
-            *[TransformFromCopy(patches[i], rows[i]) for i in range(4)],
-            lag_ratio=0.22,
-        ), run_time=2.6)
-        self.play(FadeIn(row_caption))
-        self.wait(0.9)
-        self.play(FadeOut(VGroup(header, patches, rows, patch_caption, row_caption)))
+        # Keep the actual first row in the scene so 04 can move that same object.
+        self.focus_row = self.patch_rows[0]
+        focus = SurroundingRectangle(self.focus_row, color=YELLOW, buff=0.07)
+        note = self.ko("첫 번째 Patch 벡터 x를 다음 단계에서 살펴봅니다.", 19)
+        note.next_to(caption, DOWN, buff=0.15)
+        self.play(Create(focus), FadeIn(note))
+        self.wait(0.60)
+        self.play(FadeOut(VGroup(header, patches, caption, note, focus)))
+        remaining = [m for m in self.patch_rows[1:] if m in self.mobjects]
+        if remaining:
+            self.play(*[FadeOut(m) for m in remaining])
+        # Do not fade out self.focus_row.
 
     def show_projection(self):
-        header = self.heading("04  Linear Projection", "(4, 12) @ (12, 6) = (4, 6)")
-        subtitle = self.ko("입력 벡터에 학습 가능한 Weight Matrix를 곱합니다.", 20)
-        subtitle.next_to(header, DOWN, buff=0.20)
+        header = self.stage("04", "Linear Projection", "입력 벡터 x와 학습 가능한 Weight Matrix W를 곱합니다.")
+        x = self.focus_row
 
-        x = self.vector(12, height=0.42).move_to(LEFT * 4.25 + DOWN * 0.12)
         weights = VGroup()
         for r in range(12):
             row = VGroup()
             for c in range(6):
-                cell = Rectangle(width=0.22, height=0.17,
-                                 stroke_color=WHITE, stroke_width=0.5)
-                cell.set_fill((BLUE_B, GREEN_B, ORANGE)[(r+c) % 3], opacity=0.85)
+                cell = Rectangle(width=0.21, height=0.17,
+                                 stroke_color=WHITE, stroke_width=0.55)
+                cell.set_fill((BLUE_B, GREEN_B, ORANGE)[(r+c)%3], opacity=0.85)
                 row.add(cell)
             row.arrange(RIGHT, buff=0.018)
             weights.add(row)
-        weights.arrange(DOWN, buff=0.016).move_to(DOWN * 0.08)
-        y = VGroup()
-        for i in range(6):
-            cell = Rectangle(width=0.28, height=0.42,
-                             stroke_color=WHITE, stroke_width=1)
-            cell.set_fill((BLUE_B, GREEN_B, ORANGE)[i % 3], opacity=0.86)
-            y.add(cell)
-        y.arrange(RIGHT, buff=0.03).move_to(RIGHT * 4.0 + DOWN * 0.12)
-        symbols = VGroup(
-            Text("@", font_size=38).move_to(LEFT * 2.3),
-            Text("=", font_size=38).move_to(RIGHT * 2.2),
-        )
-        labels = VGroup(
-            self.label("x  (1, 12)", x),
-            self.label("W  (12, 6)", weights),
-            self.label("y  (1, 6)", y),
-        )
-        self.play(FadeIn(header), FadeIn(subtitle), FadeIn(x), FadeIn(labels[0]))
-        self.play(FadeIn(symbols[0]), FadeIn(weights), FadeIn(labels[1]))
-        self.play(FadeIn(symbols[1]))
-        for col in range(6):
-            selected = VGroup(*[weights[r][col] for r in range(12)])
-            mark = SurroundingRectangle(selected, color=YELLOW, buff=0.055)
-            self.play(Create(mark), run_time=0.18)
-            self.play(TransformFromCopy(VGroup(x, selected), y[col]), run_time=0.32)
-            self.play(FadeOut(mark), run_time=0.15)
-        self.play(FadeIn(labels[2]))
-        self.wait(0.7)
-        self.play(FadeOut(VGroup(header, subtitle, x, weights, y, symbols, labels)))
+        weights.arrange(DOWN, buff=0.016).move_to(LEFT * 0.10 + DOWN * 0.10)
 
-        header = self.heading("04  Linear Projection", "Same Weight Matrix for every patch")
-        subtitle = self.ko("네 개의 Patch에 동일한 W를 적용합니다.", 20)
-        subtitle.next_to(header, DOWN, buff=0.20)
-        inputs = VGroup()
-        outputs = VGroup()
+        y = VGroup()
+        for c in range(6):
+            cell = Rectangle(width=0.27, height=0.40,
+                             stroke_color=WHITE, stroke_width=1)
+            cell.set_fill((BLUE_B, GREEN_B, ORANGE)[c%3], opacity=0.86)
+            y.add(cell)
+        y.arrange(RIGHT, buff=0.03).move_to(RIGHT * 4.05 + DOWN * 0.12)
+        x_label = Text("x  (1, 12)", font_size=20)
+        w_label = Text("W  (12, 6)", font_size=20).next_to(weights, DOWN, buff=0.30)
+        y_label = Text("y  (1, 6)", font_size=20).next_to(y, DOWN, buff=0.34)
+        matmul = Text("@", font_size=36).move_to(LEFT * 2.18)
+        equal = Text("=", font_size=36).move_to(RIGHT * 2.22)
+        hint = self.ko("W의 열 하나가 출력 벡터의 원소 하나를 만듭니다.", 19)
+        hint.to_edge(DOWN, buff=0.43)
+
+        self.play(FadeIn(header), x.animate.move_to(LEFT * 4.1 + DOWN * 0.12),
+                  run_time=1.0)
+        x_label.next_to(x, DOWN, buff=0.34)
+        self.play(FadeIn(x_label), FadeIn(weights), FadeIn(w_label), FadeIn(matmul))
+        self.play(FadeIn(equal), FadeIn(hint))
+        for c in range(6):
+            column = VGroup(*[weights[r][c] for r in range(12)])
+            highlight = SurroundingRectangle(column, color=YELLOW, buff=0.05)
+            self.play(Create(highlight), run_time=0.16)
+            self.play(TransformFromCopy(VGroup(x, column), y[c]), run_time=0.35)
+            self.play(FadeOut(highlight), run_time=0.12)
+        self.play(FadeIn(y_label))
+        self.wait(0.7)
+        self.play(FadeOut(VGroup(header, x, weights, y, x_label, w_label,
+                                 y_label, matmul, equal, hint)))
+
+        header = self.stage("04", "Shared Linear Projection",
+                            "같은 Weight Matrix를 네 개의 Patch에 모두 적용합니다.")
+        inputs, outputs = VGroup(), VGroup()
         for i in range(4):
-            vec = self.vector(12).move_to(
-                LEFT * 3.7 + UP * (1.5 - i) * 0.67 + DOWN * 0.07
-            )
-            inputs.add(vec)
+            v = self.vector(12)
+            v.move_to(LEFT * 3.8 + UP * (1.5-i)*0.64 + DOWN*0.10)
+            inputs.add(v)
             out = VGroup()
             for j in range(6):
-                cell = Rectangle(width=0.26, height=0.36,
+                unit = Rectangle(width=0.26, height=0.37,
                                  stroke_color=WHITE, stroke_width=1)
-                cell.set_fill((BLUE_B, GREEN_B, ORANGE)[(i+j) % 3], opacity=0.85)
-                out.add(cell)
+                unit.set_fill((BLUE_B, GREEN_B, ORANGE)[(i+j)%3], opacity=0.86)
+                out.add(unit)
             out.arrange(RIGHT, buff=0.03)
-            out.move_to(RIGHT * 3.7 + UP * (1.5-i) * 0.67 + DOWN * 0.07)
+            out.move_to(RIGHT*3.8 + UP*(1.5-i)*0.64 + DOWN*0.10)
             outputs.add(out)
-        frame = Rectangle(width=2.05, height=1.22, color=YELLOW)
+        frame = Rectangle(width=2.0, height=1.3, color=YELLOW)
         name = Text("Linear\nW (12, 6)", font_size=22, color=YELLOW)
         name.move_to(frame)
-        linear = VGroup(frame, name)
-        labels = VGroup(self.label("(4, 12)", inputs),
-                        self.label("(4, 6)", outputs))
-        self.play(FadeIn(header), FadeIn(subtitle), FadeIn(inputs),
-                  FadeIn(labels[0]), FadeIn(linear))
+        linear = VGroup(frame, name).move_to(DOWN*0.10)
+        left_label = Text("(4, 12)", font_size=21).next_to(inputs, DOWN, buff=0.35)
+        right_label = Text("(4, 6)", font_size=21).next_to(outputs, DOWN, buff=0.35)
+        self.play(FadeIn(header), FadeIn(inputs), FadeIn(left_label), FadeIn(linear))
         for i in range(4):
-            self.play(TransformFromCopy(inputs[i], outputs[i]), run_time=0.48)
-        self.play(FadeIn(labels[1]))
-        self.wait(0.95)
-        self.play(FadeOut(VGroup(header, subtitle, inputs, outputs, linear, labels)))
+            self.play(TransformFromCopy(inputs[i], outputs[i]), run_time=0.52)
+        self.play(FadeIn(right_label))
+        self.wait(0.8)
+        self.play(FadeOut(VGroup(header, inputs, outputs, left_label,
+                                 right_label, linear)))
 
     def ko(self, content, size=22, color=GREY_B):
         return Text(content, font=KFONT, font_size=size, color=color)
