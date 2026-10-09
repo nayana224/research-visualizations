@@ -415,7 +415,7 @@ class ViTFullPipeline(Scene):
             knames[r].next_to(cells[0][r], UP, buff=0.25)
         shape = Text("QK^T : (5, 5)", font_size=23)
         shape.next_to(cells, DOWN, buff=0.35)
-        note = self.ko("각 행은 Query 하나가 모든 Key를 비교한 결과입니다.", 19)
+        note = self.ko("각 행은 Query 하나의 비교 결과입니다. 색상은 예시입니다.", 19)
         note.to_edge(DOWN, buff=0.4)
         self.play(FadeIn(header), FadeIn(qnames), FadeIn(knames))
         for r in range(5):
